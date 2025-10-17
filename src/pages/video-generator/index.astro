@@ -1,0 +1,16 @@
+---
+const elements = 22;
+const versions = Array.from({ length: elements }, (_, index) => index + 1).reverse()
+---
+
+<div>
+  <ul>
+    {
+      versions.map((version) => (
+        <li>
+          {version}. <a href={`/video-generator/version/video-generator-${version}`}>versia {version}</a>
+        </li>
+      ))
+    }
+  </ul>
+</div>

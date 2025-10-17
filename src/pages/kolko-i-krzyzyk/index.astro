@@ -1,0 +1,20 @@
+---
+import Layout from '../../layouts/Layout.astro';
+const elements = 2;
+const versions = Array.from({ length: elements }, (_, index) => index + 1).reverse();
+---
+
+<Layout>
+<div>
+  <ul>
+    {
+      versions.map((version) => (
+        <li>
+          <a href={`/kolko-i-krzyzyk/kolko-i-krzyzyk-${version}`}>wersja {version}</a>
+          <br />
+        </li>
+      ))
+    }
+  </ul>
+</div>
+</Layout>
