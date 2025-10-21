@@ -1,52 +1,5 @@
 import React, { useState } from "react";
 
-const TicTacToe = () => {
-  const [board, setBoard] = useState(Array(9).fill(null));
-  const [isXNext, setIsXNext] = useState(true);
-  const winner = calculateWinner(board);
-
-  const handleClick = (index) => {
-    if (board[index] || winner) {
-      return; // Zablokuj kliknięcie, jeśli na polu już jest znak lub gra jest zakończona
-    }
-    const newBoard = board.slice();
-    newBoard[index] = isXNext ? "X" : "O";
-    setBoard(newBoard);
-    setIsXNext(!isXNext);
-  };
-
-  const renderSquare = (index) => (
-    <button className="square" onClick={() => handleClick(index)}>
-      {board[index]}
-    </button>
-  );
-
-  const status = winner ? `Winner: ${winner}` : `Next player: ${isXNext ? "X" : "O"}`;
-
-  return (
-    <div className="game">
-      <div className="status">{status}</div>
-      <div className="board">
-        <div className="board-row">
-          {renderSquare(0)}
-          {renderSquare(1)}
-          {renderSquare(2)}
-        </div>
-        <div className="board-row">
-          {renderSquare(3)}
-          {renderSquare(4)}
-          {renderSquare(5)}
-        </div>
-        <div className="board-row">
-          {renderSquare(6)}
-          {renderSquare(7)}
-          {renderSquare(8)}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 function calculateWinner(squares) {
   const lines = [
     [0, 1, 2],
@@ -58,9 +11,8 @@ function calculateWinner(squares) {
     [0, 4, 8],
     [2, 4, 6],
   ];
-
-  for (let i = 0; i < lines.length; i++) {
-    const [a, b, c] = lines[i];
+  for (let line of lines) {
+    const [a, b, c] = line;
     if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
       return squares[a];
     }
@@ -68,4 +20,64 @@ function calculateWinner(squares) {
   return null;
 }
 
-export default TicTacToe;
+export default function TicTacToe() {
+  const [squares, setSquares] = useState(Array(9).fill(null));
+  const [xIsNext, setXIsNext] = useState(true);
+
+  const winner = calculateWinner(squares);
+  const isDraw = !winner && squares.every((square) => square);
+
+  function handleClick(index) {
+    if (squares[index] || winner) return;
+    const newSquares = squares.slice();
+    newSquares[index] = xIsNext ? "X" : "O";
+    setSquares(newSquares);
+    setXIsNext(!xIsNext);
+  }
+
+  function handleRestart() {
+    setSquares(Array(9).fill(null));
+    setXIsNext(true);
+  }
+
+  let status;
+  if (winner) {
+    status = `Wygrał: ${winner}`;
+  } else if (isDraw) {
+    status = "Remis!";
+  } else {
+    status = `Ruch: ${xIsNext ? "X" : "O"}`;
+  }
+
+  return (
+    <div style={{ textAlign: "center", marginTop: "40px" }}>
+      <h1>Kółko i Krzyżyk</h1>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 60px)",
+          gap: "5px",
+          justifyContent: "center",
+          margin: "20px 0",
+        }}
+      >
+        {squares.map((value, idx) => (
+          <button
+            key={idx}
+            style={{
+              width: "60px",
+              height: "60px",
+              fontSize: "2rem",
+              cursor: value || winner ? "not-allowed" : "pointer",
+            }}
+            onClick={() => handleClick(idx)}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: "1.2rem", marginBottom: "10px" }}>{status}</div>
+      {(winner || isDraw) && <button onClick={handleRestart}>Zagraj ponownie</button>}
+    </div>
+  );
+}

@@ -1,7 +1,8 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-const elements = 2;
+const elements = 3;
 const versions = Array.from({ length: elements }, (_, index) => index + 1).reverse();
+const APP_NAME = "kolko-i-krzyzyk"
 ---
 
 <Layout>
@@ -10,7 +11,7 @@ const versions = Array.from({ length: elements }, (_, index) => index + 1).rever
     {
       versions.map((version) => (
         <li>
-          <a href={`/kolko-i-krzyzyk/kolko-i-krzyzyk-${version}`}>wersja {version}</a>
+          <a href={`/${APP_NAME}/${APP_NAME}-${version}`}>wersja {version}</a>
           <br />
         </li>
       ))
