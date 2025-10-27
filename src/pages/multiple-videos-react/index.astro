@@ -1,0 +1,21 @@
+---
+import Layout from '../../layouts/Layout.astro';
+const elements = 5;
+const versions = Array.from({ length: elements }, (_, index) => index + 1).reverse();
+const APP_NAME = "multiple-videos-react"
+---
+
+<Layout>
+<div>
+  <ul>
+    {
+      versions.map((version) => (
+        <li>
+          <a href={`/${APP_NAME}/${APP_NAME}-${version}`}>wersja {version}</a>
+          <br />
+        </li>
+      ))
+    }
+  </ul>
+</div>
+</Layout>
