@@ -1,5 +1,40 @@
 ---
-import OverlayImageEditor from "../../componentsReact/thumbnails/thumbnail.tsx";
+import Layout from "../../layouts/Layout.astro";
+
+const APP_NAME = "youtube-thumbnail-generator";
+
+const createDataForBranch19 = (prompt: number, broken = "") => {
+  const dataArr = [`BRANCH-19-PROMPT-${prompt}-youtube-thumbnail-generator`, `(BRANCH 19) (PROMPT ${prompt})`];
+
+  if (broken) {
+    dataArr.push(broken);
+  }
+
+  return dataArr;
+};
+
+const DATA = [  createDataForBranch19(12),
+  createDataForBranch19(11),
+  createDataForBranch19(10),
+  createDataForBranch19(9, "BROKEN"),
+  createDataForBranch19(8),
+];
 ---
 
-<OverlayImageEditor client:load />
+<Layout>
+  <div>
+    <h1>{APP_NAME}</h1>
+    <ul>
+      {
+        DATA.map(([url, name, broken]) => (
+          <li>
+            <a style="text-decoration: none;" href={`/${APP_NAME}/${url}`}>
+              Wersja {name} {broken && <strong>{broken}</strong>}
+            </a>
+            <br />
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</Layout>
