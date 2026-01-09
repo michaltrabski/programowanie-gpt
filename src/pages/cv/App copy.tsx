@@ -30,45 +30,18 @@ interface SkillSet {
   items: string[];
 }
 
-interface Language {
-  language: string;
-  proficiency: string;
-}
-
-// NEW: Interface for customizable labels
-interface CVLabels {
-  summary: string;
-  experience: string;
-  education: string;
-  skills: string;
-  languages: string;
-  interests: string;
-}
-
 interface CVData {
-  labels: CVLabels; // NEW: Holds the custom titles
   fullName: string;
   title: string;
   summary: string;
   contact: ContactInfo;
   skills: SkillSet[];
-  languages: Language[]; // NEW
-  interests: string[]; // NEW
   experience: Experience[];
   education: Education[];
 }
 
 // --- Initial Data ---
 const INITIAL_DATA: CVData = {
-  // NEW: All section titles are now variables
-  labels: {
-    summary: "Profile",
-    experience: "Work Experience",
-    education: "Education",
-    skills: "Skills",
-    languages: "Languages",
-    interests: "Interests",
-  },
   fullName: "Alex J. Developer",
   title: "Senior Full Stack Engineer",
   summary:
@@ -84,13 +57,6 @@ const INITIAL_DATA: CVData = {
     { category: "Technical", items: ["Python", "SQL", "Tableau", "SAP"] },
     { category: "Soft Skills", items: ["Leadership", "Communication", "Problem Solving"] },
   ],
-  // NEW DATA
-  languages: [
-    { language: "English", proficiency: "Native" },
-    { language: "Spanish", proficiency: "Professional" },
-    { language: "German", proficiency: "Basic" },
-  ],
-  interests: ["Photography", "Marathon Running", "Open Source", "Chess"],
   experience: [
     {
       id: "1",
@@ -127,9 +93,11 @@ const INITIAL_DATA: CVData = {
 
 // --- Main Component ---
 const CVGenerator: React.FC = () => {
+  // --- State with ROBUST LocalStorage Initialization ---
   const [jsonString, setJsonString] = useState<string>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("cv_data");
+      // FIX: Ensure we don't load the string "undefined" or "null"
       if (saved && saved !== "undefined" && saved !== "null") {
         return saved;
       }
@@ -158,16 +126,12 @@ const CVGenerator: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- Persistence Effects ---
   useEffect(() => {
     if (jsonString && jsonString !== "undefined") {
       localStorage.setItem("cv_data", jsonString);
       try {
         const parsed = JSON.parse(jsonString);
-        // Fallback: If old localstorage data exists without labels, merge defaults
-        if (!parsed.labels) parsed.labels = INITIAL_DATA.labels;
-        if (!parsed.languages) parsed.languages = INITIAL_DATA.languages;
-        if (!parsed.interests) parsed.interests = INITIAL_DATA.interests;
-
         setData(parsed);
         setError(null);
       } catch (e) {
@@ -192,6 +156,7 @@ const CVGenerator: React.FC = () => {
     }
   }, [profileImage]);
 
+  // --- Handlers ---
   const handlePrint = () => window.print();
 
   const handleReset = () => {
@@ -425,6 +390,7 @@ const CVGenerator: React.FC = () => {
   );
 };
 
+// --- HELPER COMPONENT: Style Button ---
 const StyleButton = ({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) => (
   <button
     onClick={onClick}
@@ -446,17 +412,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
   const baseClass =
     "bg-white text-[#1f2937] shadow-2xl mx-auto rounded-none lg:rounded-md transition-all duration-300 overflow-hidden";
 
-  // Safe access to labels in case they are missing (prevents crash on old data)
-  const labels = data.labels || {
-    experience: "Experience",
-    education: "Education",
-    skills: "Skills",
-    languages: "Languages",
-    interests: "Interests",
-    summary: "Summary",
-  };
-
-  // --- MARKETING 1 ---
+  // --- MARKETING 1: Centered, Colorful, Big Header ---
   if (style === "marketing-1") {
     return (
       <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "40px" }}>
@@ -490,7 +446,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
         </header>
 
         <section className="mb-10 bg-purple-50 p-6 rounded-xl border border-purple-100">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-purple-600 mb-3">{labels.summary}</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-purple-600 mb-3">Profile</h3>
           <p className="text-gray-700 leading-relaxed text-center italic text-lg">"{data.summary}"</p>
         </section>
 
@@ -498,7 +454,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
           <div className="col-span-8">
             <section className="mb-8">
               <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <span className="text-purple-500">#</span> {labels.experience}
+                <span className="text-purple-500">#</span> Experience
               </h3>
               <div className="space-y-8">
                 {data.experience.map((exp) => (
@@ -518,10 +474,10 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
               </div>
             </section>
           </div>
-          <div className="col-span-4 space-y-8">
-            <section>
+          <div className="col-span-4">
+            <section className="mb-8">
               <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <span className="text-purple-500">#</span> {labels.skills}
+                <span className="text-purple-500">#</span> Skills
               </h3>
               <div className="flex flex-col gap-4">
                 {data.skills.map((skill, idx) => (
@@ -538,26 +494,9 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
                 ))}
               </div>
             </section>
-
-            {data.languages && data.languages.length > 0 && (
-              <section>
-                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                  <span className="text-purple-500">#</span> {labels.languages}
-                </h3>
-                <div className="space-y-2">
-                  {data.languages.map((lang, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="font-medium text-gray-700">{lang.language}</span>
-                      <span className="text-gray-500">{lang.proficiency}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
             <section>
               <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <span className="text-purple-500">#</span> {labels.education}
+                <span className="text-purple-500">#</span> Education
               </h3>
               {data.education.map((edu) => (
                 <div key={edu.id} className="mb-4">
@@ -567,28 +506,13 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
                 </div>
               ))}
             </section>
-
-            {data.interests && data.interests.length > 0 && (
-              <section>
-                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                  <span className="text-purple-500">#</span> {labels.interests}
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {data.interests.map((int, idx) => (
-                    <span key={idx} className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">
-                      {int}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
         </div>
       </div>
     );
   }
 
-  // --- MARKETING 2 ---
+  // --- MARKETING 2: Left Sidebar, Creative, High Contrast ---
   if (style === "marketing-2") {
     return (
       <div id={wrapperId} className={baseClass} style={commonStyles}>
@@ -628,7 +552,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
 
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 border-b border-gray-700 pb-1">
-                  {labels.skills}
+                  Skills
                 </h3>
                 <div className="space-y-4">
                   {data.skills.map((skill, idx) => (
@@ -649,24 +573,9 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
                 </div>
               </div>
 
-              {data.languages && data.languages.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 border-b border-gray-700 pb-1">
-                    {labels.languages}
-                  </h3>
-                  <ul className="text-sm text-gray-300 space-y-1">
-                    {data.languages.map((l, i) => (
-                      <li key={i} className="flex justify-between">
-                        <span>{l.language}</span> <span className="text-gray-500 text-xs">{l.proficiency}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 border-b border-gray-700 pb-1">
-                  {labels.education}
+                  Education
                 </h3>
                 {data.education.map((edu) => (
                   <div key={edu.id} className="mb-4">
@@ -676,37 +585,20 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
                   </div>
                 ))}
               </div>
-
-              {data.interests && data.interests.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 border-b border-gray-700 pb-1">
-                    {labels.interests}
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {data.interests.map((l, i) => (
-                      <span key={i} className="text-[10px] bg-gray-800 px-2 py-1 rounded text-gray-300">
-                        {l}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Main Content */}
           <div className="w-[65%] p-10 bg-white">
             <section className="mb-10">
-              <h2 className="text-4xl font-black text-gray-900 mb-6">{labels.summary}</h2>
+              <h2 className="text-4xl font-black text-gray-900 mb-6">Hello.</h2>
               <p className="text-gray-600 leading-loose text-justify border-l-4 border-purple-500 pl-4">
                 {data.summary}
               </p>
             </section>
 
             <section>
-              <h3 className="text-xl font-bold text-gray-900 mb-8 border-b-2 border-gray-100 pb-2">
-                {labels.experience}
-              </h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-8 border-b-2 border-gray-100 pb-2">Experience</h3>
               <div className="space-y-8">
                 {data.experience.map((exp) => (
                   <div key={exp.id}>
@@ -730,7 +622,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
     );
   }
 
-  // --- LOGISTICS 1 ---
+  // --- LOGISTICS 1: Corporate Grid ---
   if (style === "logistics-1") {
     return (
       <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "40px" }}>
@@ -753,14 +645,14 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
           <div className="col-span-2 space-y-8">
             <section>
               <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 border-b-2 border-blue-800 mb-4 pb-1">
-                {labels.summary}
+                Professional Profile
               </h3>
               <p className="text-gray-700 text-justify text-sm leading-relaxed">{data.summary}</p>
             </section>
 
             <section>
               <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 border-b-2 border-blue-800 mb-4 pb-1">
-                {labels.experience}
+                Work History
               </h3>
               <div className="space-y-6">
                 {data.experience.map((exp) => (
@@ -785,7 +677,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
 
           <div className="col-span-1 bg-gray-50 p-4 -my-4 rounded border border-gray-100 h-full">
             <section className="mb-8">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4">{labels.skills}</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4">Competencies</h3>
               <div className="space-y-4">
                 {data.skills.map((skill, idx) => (
                   <div key={idx}>
@@ -802,21 +694,8 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
               </div>
             </section>
 
-            {data.languages && data.languages.length > 0 && (
-              <section className="mb-8">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4">{labels.languages}</h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  {data.languages.map((l, i) => (
-                    <li key={i} className="flex justify-between border-b border-gray-200 pb-1">
-                      <span>{l.language}</span> <span className="font-bold text-blue-600">{l.proficiency}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            <section className="mb-8">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4">{labels.education}</h3>
+            <section>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4">Education</h3>
               {data.education.map((edu) => (
                 <div key={edu.id} className="mb-4 border-b border-gray-200 pb-2 last:border-0">
                   <div className="font-bold text-gray-900 text-sm">{edu.school}</div>
@@ -825,20 +704,13 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
                 </div>
               ))}
             </section>
-
-            {data.interests && data.interests.length > 0 && (
-              <section>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4">{labels.interests}</h3>
-                <div className="text-sm text-gray-700">{data.interests.join(", ")}</div>
-              </section>
-            )}
           </div>
         </div>
       </div>
     );
   }
 
-  // --- LOGISTICS 2 ---
+  // --- LOGISTICS 2: Header Grid, Dense Data ---
   if (style === "logistics-2") {
     return (
       <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "30px" }}>
@@ -852,7 +724,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
 
         <div className="grid grid-cols-4 gap-4 mb-6 text-xs border-b border-gray-200 pb-6">
           <div className="col-span-3">
-            <span className="font-bold text-gray-800 uppercase">{labels.summary}: </span>
+            <span className="font-bold text-gray-800">SUMMARY: </span>
             <span className="text-gray-600">{data.summary}</span>
           </div>
           <div className="col-span-1 space-y-1 text-right text-gray-600">
@@ -864,7 +736,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
 
         <div className="grid grid-cols-3 gap-8">
           <div className="col-span-2">
-            <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4">{labels.experience}</h3>
+            <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4">Operational Experience</h3>
             <div className="space-y-5">
               {data.experience.map((exp) => (
                 <div key={exp.id}>
@@ -883,7 +755,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
             </div>
           </div>
           <div className="col-span-1 bg-gray-50 p-4 border border-gray-100">
-            <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4">{labels.skills}</h3>
+            <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4">Skills Matrix</h3>
             <div className="space-y-4">
               {data.skills.map((skill, idx) => (
                 <div key={idx}>
@@ -893,20 +765,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
               ))}
             </div>
 
-            {data.languages && data.languages.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4">{labels.languages}</h3>
-                <ul className="text-xs space-y-1">
-                  {data.languages.map((l, i) => (
-                    <li key={i}>
-                      {l.language} ({l.proficiency})
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4 mt-8">{labels.education}</h3>
+            <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4 mt-8">Education</h3>
             {data.education.map((edu) => (
               <div key={edu.id} className="mb-2">
                 <div className="font-bold text-gray-900 text-xs">{edu.school}</div>
@@ -914,20 +773,13 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
                 <div className="text-xs text-gray-400">{edu.year}</div>
               </div>
             ))}
-
-            {data.interests && data.interests.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-sm font-black uppercase border-b-2 border-gray-300 mb-4">{labels.interests}</h3>
-                <div className="text-xs text-gray-600">{data.interests.join(", ")}</div>
-              </div>
-            )}
           </div>
         </div>
       </div>
     );
   }
 
-  // --- ENGINEERING 1 ---
+  // --- ENGINEERING 1: Terminal Mono (Minimal) ---
   if (style === "engineering-1") {
     return (
       <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "40px" }}>
@@ -950,7 +802,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
           <div className="col-span-4 pr-6 border-r border-gray-200">
             <section className="mb-8">
               <h3 className="font-mono text-sm font-bold text-gray-900 uppercase mb-4 tracking-tight">
-                {labels.skills}
+                Technical_Stack
               </h3>
               <div className="space-y-4">
                 {data.skills.map((skill, idx) => (
@@ -971,25 +823,8 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
               </div>
             </section>
 
-            {data.languages && data.languages.length > 0 && (
-              <section className="mb-8">
-                <h3 className="font-mono text-sm font-bold text-gray-900 uppercase mb-4 tracking-tight">
-                  {labels.languages}
-                </h3>
-                <ul className="text-xs font-mono space-y-2 text-gray-600">
-                  {data.languages.map((l, i) => (
-                    <li key={i}>
-                      [{l.language}] :: {l.proficiency}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            <section className="mb-8">
-              <h3 className="font-mono text-sm font-bold text-gray-900 uppercase mb-4 tracking-tight">
-                {labels.education}
-              </h3>
+            <section>
+              <h3 className="font-mono text-sm font-bold text-gray-900 uppercase mb-4 tracking-tight">Education</h3>
               {data.education.map((edu) => (
                 <div key={edu.id} className="mb-4">
                   <div className="font-bold text-gray-900 text-sm">{edu.school}</div>
@@ -998,28 +833,19 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
                 </div>
               ))}
             </section>
-
-            {data.interests && data.interests.length > 0 && (
-              <section>
-                <h3 className="font-mono text-sm font-bold text-gray-900 uppercase mb-4 tracking-tight">
-                  {labels.interests}
-                </h3>
-                <div className="text-xs font-mono text-gray-600">{data.interests.map((i) => `"${i}"`).join(", ")}</div>
-              </section>
-            )}
           </div>
 
           <div className="col-span-8">
             <section className="mb-8">
               <h3 className="font-mono text-sm font-bold text-gray-900 uppercase mb-3 tracking-tight">
-                git commit -m "{labels.summary}"
+                git commit -m "Summary"
               </h3>
               <p className="text-gray-700 text-sm leading-relaxed">{data.summary}</p>
             </section>
 
             <section>
               <h3 className="font-mono text-sm font-bold text-gray-900 uppercase mb-6 tracking-tight">
-                ./{labels.experience}.log
+                Experience_Log
               </h3>
               <div className="space-y-8">
                 {data.experience.map((exp) => (
@@ -1046,7 +872,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
     );
   }
 
-  // --- ENGINEERING 2 ---
+  // --- ENGINEERING 2: Modern Tech (Clean Sans) ---
   return (
     <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "40px" }}>
       <header className="flex gap-6 items-center mb-10">
@@ -1068,7 +894,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
 
       <div className="grid grid-cols-12 gap-8">
         <div className="col-span-8">
-          <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-6">{labels.experience}</h3>
+          <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-6">Work Experience</h3>
           <div className="space-y-8">
             {data.experience.map((exp) => (
               <div key={exp.id} className="relative pl-6 border-l border-slate-200">
@@ -1092,7 +918,7 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
 
         <div className="col-span-4 space-y-8">
           <div>
-            <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-4">{labels.skills}</h3>
+            <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-4">Skills</h3>
             <div className="space-y-4">
               {data.skills.map((skill, idx) => (
                 <div key={idx}>
@@ -1109,22 +935,8 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
             </div>
           </div>
 
-          {data.languages && data.languages.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-4">{labels.languages}</h3>
-              <div className="space-y-2">
-                {data.languages.map((l, i) => (
-                  <div key={i} className="flex justify-between text-xs text-slate-700 border-b border-slate-100 pb-1">
-                    <span>{l.language}</span>
-                    <span className="font-semibold text-slate-500">{l.proficiency}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div>
-            <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-4">{labels.education}</h3>
+            <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-4">Education</h3>
             {data.education.map((edu) => (
               <div key={edu.id} className="mb-4">
                 <div className="font-bold text-slate-800 text-sm">{edu.school}</div>
@@ -1133,19 +945,6 @@ const TemplateRenderer = ({ style, data, image }: { style: CVStyle; data: CVData
               </div>
             ))}
           </div>
-
-          {data.interests && data.interests.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-4">{labels.interests}</h3>
-              <div className="flex flex-wrap gap-2">
-                {data.interests.map((int, i) => (
-                  <span key={i} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-                    {int}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
