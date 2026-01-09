@@ -1,15 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // --- Types ---
-type CVStyle =
-  | "marketing-1"
-  | "marketing-2"
-  | "logistics-1"
-  | "logistics-2"
-  | "engineering-1"
-  | "engineering-2"
-  | "ecommerce-1"
-  | "ecommerce-2"; // NEW STYLES ADDED
+type CVStyle = "marketing-1" | "marketing-2" | "logistics-1" | "logistics-2" | "engineering-1" | "engineering-2";
 
 interface ContactInfo {
   email: string;
@@ -76,66 +68,69 @@ const INITIAL_DATA: CVData = {
     interests: "Interests",
   },
   fullName: "Alex J. Developer",
-  title: "Head of Ecommerce & Growth",
+  title: "Senior Full Stack Engineer",
   summary:
-    "Results-oriented ecommerce professional with 6+ years driving D2C growth. Expert in CRO, Shopify development, and data-driven marketing strategies. Proven track record of scaling revenue by 200% YoY.",
+    "Passionate professional with 6+ years of experience. Expert in optimizing workflows and building scalable solutions. Proven track record of leading teams and driving performance improvements.",
   contact: {
     email: "alex.dev@example.com",
     phone: "+1 (555) 123-4567",
     linkedin: "linkedin.com/in/alexjdev",
-    location: "New York, NY",
+    location: "San Francisco, CA",
   },
   skills: [
-    { category: "Platforms", items: ["Shopify Plus", "WooCommerce", "Magento", "Amazon Seller Central"] },
-    { category: "Marketing", items: ["SEO/SEM", "Google Ads", "Facebook Ads", "Email Automation"] },
-    { category: "Analytics", items: ["Google Analytics 4", "Hotjar", "Excel", "Looker"] },
+    { category: "Core", items: ["Strategic Planning", "Project Management", "Data Analysis"] },
+    { category: "Technical", items: ["Python", "SQL", "Tableau", "SAP"] },
+    { category: "Soft Skills", items: ["Leadership", "Communication", "Problem Solving"] },
   ],
   languages: [
     { language: "English", proficiency: "Native" },
-    { language: "Spanish", proficiency: "Conversational" },
+    { language: "Spanish", proficiency: "Professional" },
+    { language: "German", proficiency: "Basic" },
   ],
-  interests: ["Dropshipping", "UI/UX Design", "Investing", "Cycling"],
+  interests: ["Photography", "Marathon Running", "Open Source", "Chess"],
   experience: [
     {
       id: "1",
-      role: "Ecommerce Manager",
-      company: "Urban Style Brands",
+      role: "Senior Project Manager",
+      company: "Global Solutions Inc.",
       duration: "2021 - Present",
       description: [
-        "Managed P&L for a $5M annual revenue D2C store.",
-        "Optimized checkout flow increasing conversion rate by 1.5%.",
-        "Led a team of 5 developers and marketers to launch a new mobile app.",
+        "Led cross-functional teams to deliver projects 20% under budget.",
+        "Implemented new operational workflows increasing efficiency by 35%.",
+        "Mentored junior staff and conducted quarterly performance reviews.",
       ],
     },
     {
       id: "2",
-      role: "Digital Marketing Specialist",
-      company: "Growth Agency",
+      role: "Operations Analyst",
+      company: "LogiTech Systems",
       duration: "2018 - 2021",
       description: [
-        "Managed $50k/mo ad spend across Meta and Google.",
-        "Implemented A/B testing strategies that reduced CAC by 20%.",
-        "Developed automated email flows in Klaviyo generating $200k in additional revenue.",
+        "Analyzed supply chain data to identify bottlenecks.",
+        "Collaborated with vendors to negotiate better contract terms.",
+        "Automated reporting processes using Python scripts.",
       ],
     },
   ],
   education: [
     {
       id: "1",
-      degree: "B.S. Marketing",
-      school: "State University",
+      degree: "B.S. Business Administration",
+      school: "University of Technology",
       year: "2018",
     },
   ],
 };
 
 // --- Helper: Deep Object Update ---
+// Allows updating nested paths like ['experience', 0, 'role']
 const setDeepValue = (obj: any, path: (string | number)[], value: any): any => {
   const newObj = Array.isArray(obj) ? [...obj] : { ...obj };
   let current = newObj;
   for (let i = 0; i < path.length - 1; i++) {
     const key = path[i];
     if (!current[key]) current[key] = {};
+    // Clone nested objects/arrays to maintain immutability
     current[key] = Array.isArray(current[key]) ? [...current[key]] : { ...current[key] };
     current = current[key];
   }
@@ -144,6 +139,7 @@ const setDeepValue = (obj: any, path: (string | number)[], value: any): any => {
 };
 
 // --- COMPONENT: Editable Text ---
+// Renders text that becomes editable on click/focus
 interface EditableProps {
   value: string;
   onUpdate: (newValue: string) => void;
@@ -166,16 +162,9 @@ const Editable: React.FC<EditableProps> = ({
     }
   };
 
+  // Handle "Enter" key for single-line inputs to blur
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
-    if (
-      e.key === "Enter" &&
-      Tag !== "p" &&
-      Tag !== "div" &&
-      Tag !== "h1" &&
-      Tag !== "h2" &&
-      Tag !== "h3" &&
-      Tag !== "h4"
-    ) {
+    if (e.key === "Enter" && Tag !== "p" && Tag !== "div") {
       e.preventDefault();
       e.currentTarget.blur();
     }
@@ -207,8 +196,8 @@ const CVGenerator: React.FC = () => {
 
   const [data, setData] = useState<CVData>(INITIAL_DATA);
   const [selectedStyle, setSelectedStyle] = useState<CVStyle>(() => {
-    if (typeof window !== "undefined") return (localStorage.getItem("cv_style") as CVStyle) || "ecommerce-1";
-    return "ecommerce-1";
+    if (typeof window !== "undefined") return (localStorage.getItem("cv_style") as CVStyle) || "marketing-1";
+    return "marketing-1";
   });
 
   const [profileImage, setProfileImage] = useState<string | null>(() => {
@@ -223,17 +212,20 @@ const CVGenerator: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- Core Update Logic ---
   const handleFieldUpdate = (path: (string | number)[], newValue: string) => {
     const newData = setDeepValue(data, path, newValue);
     setData(newData);
     setJsonString(JSON.stringify(newData, null, 2));
   };
 
+  // Sync JSON string to Data State
   useEffect(() => {
     if (jsonString && jsonString !== "undefined") {
       localStorage.setItem("cv_data", jsonString);
       try {
         const parsed = JSON.parse(jsonString);
+        // Default fallbacks for older saves
         if (!parsed.labels) parsed.labels = INITIAL_DATA.labels;
         if (!parsed.languages) parsed.languages = INITIAL_DATA.languages;
         if (!parsed.interests) parsed.interests = INITIAL_DATA.interests;
@@ -274,6 +266,7 @@ const CVGenerator: React.FC = () => {
     }
   };
 
+  // File Handlers
   const processFile = (file: File) => {
     if (file && file.type.startsWith("image/")) {
       const reader = new FileReader();
@@ -307,6 +300,8 @@ const CVGenerator: React.FC = () => {
           body, html, #root, .main-layout { width: 100%; height: auto; margin: 0; padding: 0; background-color: white !important; }
           .cv-preview-wrapper { display: block !important; position: absolute !important; top: 0 !important; left: 0 !important; width: 100% !important; margin: 0 !important; padding: 0 !important; background: white !important; border: none !important; box-shadow: none !important; z-index: 9999; }
           #printable-cv { width: 210mm !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; border-radius: 0 !important; border: none !important; min-height: 100vh !important; background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          
+          /* Hide edit hints on print */
           [contenteditable]:hover { background: transparent !important; outline: none !important; border: none !important; }
         }
       `}</style>
@@ -324,13 +319,6 @@ const CVGenerator: React.FC = () => {
                 </button>
               </div>
               <div className="space-y-3">
-                <StyleGroup
-                  title="ECOMMERCE"
-                  styles={["ecommerce-1", "ecommerce-2"]}
-                  current={selectedStyle}
-                  set={setSelectedStyle}
-                  labels={["Growth & Scale", "Brand Modern"]}
-                />
                 <StyleGroup
                   title="MARKETING"
                   styles={["marketing-1", "marketing-2"]}
@@ -449,7 +437,7 @@ const StyleGroup = ({ title, styles, current, set, labels }: any) => (
   </div>
 );
 
-// --- TEMPLATE RENDERER ---
+// --- TEMPLATE RENDERER (ALL TEMPLATES UPDATED TO BE EDITABLE) ---
 const TemplateRenderer = ({
   style,
   data,
@@ -465,6 +453,7 @@ const TemplateRenderer = ({
   const commonStyles = { width: "210mm", minHeight: "297mm", boxSizing: "border-box" as const };
   const baseClass =
     "bg-white text-[#1f2937] shadow-2xl mx-auto rounded-none lg:rounded-md transition-all duration-300 overflow-hidden";
+
   const labels = data.labels || {
     experience: "Experience",
     education: "Education",
@@ -473,365 +462,6 @@ const TemplateRenderer = ({
     interests: "Interests",
     summary: "Summary",
   };
-
-  // --- ECOMMERCE 1: Growth & Scale (Clean, Metric Focused) ---
-  if (style === "ecommerce-1") {
-    return (
-      <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "40px" }}>
-        <header className="border-b-2 border-black pb-6 mb-8 flex justify-between items-center">
-          <div className="flex-1">
-            <Editable
-              tag="h1"
-              className="text-5xl font-black uppercase tracking-tight leading-none mb-2"
-              value={data.fullName}
-              onUpdate={(v) => onUpdate(["fullName"], v)}
-            />
-            <Editable
-              tag="p"
-              className="text-xl font-medium text-gray-600"
-              value={data.title}
-              onUpdate={(v) => onUpdate(["title"], v)}
-            />
-          </div>
-          <div className="text-right text-sm font-medium text-gray-800 space-y-1">
-            <Editable
-              className="block"
-              value={data.contact.email}
-              onUpdate={(v) => onUpdate(["contact", "email"], v)}
-            />
-            <Editable
-              className="block"
-              value={data.contact.phone}
-              onUpdate={(v) => onUpdate(["contact", "phone"], v)}
-            />
-            <Editable
-              className="block"
-              value={data.contact.location}
-              onUpdate={(v) => onUpdate(["contact", "location"], v)}
-            />
-            <Editable
-              className="block text-blue-600"
-              value={data.contact.linkedin}
-              onUpdate={(v) => onUpdate(["contact", "linkedin"], v)}
-            />
-          </div>
-          {image && <img src={image} alt="Profile" className="w-24 h-24 object-cover border-2 border-black ml-6" />}
-        </header>
-
-        <section className="mb-8">
-          <Editable
-            tag="h3"
-            className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-3 uppercase"
-            value={labels.summary}
-            onUpdate={(v) => onUpdate(["labels", "summary"], v)}
-          />
-          <Editable
-            tag="p"
-            className="text-gray-800 text-lg leading-relaxed font-light"
-            value={data.summary}
-            onUpdate={(v) => onUpdate(["summary"], v)}
-          />
-        </section>
-
-        <div className="grid grid-cols-12 gap-8">
-          <div className="col-span-8">
-            <section className="mb-8">
-              <Editable
-                tag="h3"
-                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
-                value={labels.experience}
-                onUpdate={(v) => onUpdate(["labels", "experience"], v)}
-              />
-              <div className="space-y-8">
-                {data.experience.map((exp, idx) => (
-                  <div key={exp.id}>
-                    <div className="flex justify-between items-baseline border-b border-gray-200 pb-1 mb-2">
-                      <Editable
-                        tag="h4"
-                        className="text-xl font-bold"
-                        value={exp.role}
-                        onUpdate={(v) => onUpdate(["experience", idx, "role"], v)}
-                      />
-                      <Editable
-                        tag="span"
-                        className="text-sm font-bold"
-                        value={exp.duration}
-                        onUpdate={(v) => onUpdate(["experience", idx, "duration"], v)}
-                      />
-                    </div>
-                    <Editable
-                      className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 block"
-                      value={exp.company}
-                      onUpdate={(v) => onUpdate(["experience", idx, "company"], v)}
-                    />
-                    <ul className="list-disc list-outside ml-4 text-gray-700 space-y-1">
-                      {exp.description.map((desc, i) => (
-                        <li key={i}>
-                          <Editable value={desc} onUpdate={(v) => onUpdate(["experience", idx, "description", i], v)} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <div className="col-span-4 space-y-8">
-            <section>
-              <Editable
-                tag="h3"
-                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
-                value={labels.skills}
-                onUpdate={(v) => onUpdate(["labels", "skills"], v)}
-              />
-              <div className="space-y-4">
-                {data.skills.map((skill, idx) => (
-                  <div key={idx}>
-                    <Editable
-                      className="font-bold text-sm border-b border-gray-300 block mb-1"
-                      value={skill.category}
-                      onUpdate={(v) => onUpdate(["skills", idx, "category"], v)}
-                    />
-                    <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm text-gray-600">
-                      {skill.items.map((item, i) => (
-                        <span key={i} className="after:content-[','] last:after:content-['']">
-                          <Editable value={item} onUpdate={(v) => onUpdate(["skills", idx, "items", i], v)} />
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section>
-              <Editable
-                tag="h3"
-                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
-                value={labels.education}
-                onUpdate={(v) => onUpdate(["labels", "education"], v)}
-              />
-              {data.education.map((edu, idx) => (
-                <div key={edu.id} className="mb-3">
-                  <Editable
-                    className="font-bold block"
-                    value={edu.school}
-                    onUpdate={(v) => onUpdate(["education", idx, "school"], v)}
-                  />
-                  <Editable
-                    className="text-sm text-gray-600 block"
-                    value={edu.degree}
-                    onUpdate={(v) => onUpdate(["education", idx, "degree"], v)}
-                  />
-                  <Editable
-                    className="text-xs text-gray-400 block"
-                    value={edu.year}
-                    onUpdate={(v) => onUpdate(["education", idx, "year"], v)}
-                  />
-                </div>
-              ))}
-            </section>
-
-            <section>
-              <Editable
-                tag="h3"
-                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
-                value={labels.interests}
-                onUpdate={(v) => onUpdate(["labels", "interests"], v)}
-              />
-              <div className="text-sm text-gray-600 flex flex-wrap gap-2">
-                {data.interests.map((int, i) => (
-                  <span key={i} className="bg-gray-100 px-2 py-1 rounded">
-                    <Editable value={int} onUpdate={(v) => onUpdate(["interests", i], v)} />
-                  </span>
-                ))}
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- ECOMMERCE 2: Brand Modern (Teal Accent, Card Style) ---
-  if (style === "ecommerce-2") {
-    return (
-      <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "0px" }}>
-        <div className="bg-teal-700 text-white p-10 flex items-center justify-between">
-          <div className="flex-1">
-            <Editable
-              tag="h1"
-              className="text-4xl font-bold tracking-tight mb-2"
-              value={data.fullName}
-              onUpdate={(v) => onUpdate(["fullName"], v)}
-            />
-            <Editable
-              tag="p"
-              className="text-teal-200 text-lg font-medium"
-              value={data.title}
-              onUpdate={(v) => onUpdate(["title"], v)}
-            />
-            <div className="flex gap-4 mt-4 text-sm text-teal-100 font-medium">
-              <Editable value={data.contact.email} onUpdate={(v) => onUpdate(["contact", "email"], v)} />
-              <span>•</span>
-              <Editable value={data.contact.phone} onUpdate={(v) => onUpdate(["contact", "phone"], v)} />
-              <span>•</span>
-              <Editable value={data.contact.location} onUpdate={(v) => onUpdate(["contact", "location"], v)} />
-            </div>
-          </div>
-          {image && (
-            <img
-              src={image}
-              alt="Profile"
-              className="w-28 h-28 rounded-full border-4 border-teal-500 object-cover shadow-lg"
-            />
-          )}
-        </div>
-
-        <div className="p-10 grid grid-cols-3 gap-8">
-          <div className="col-span-2 space-y-8">
-            <section>
-              <h3 className="text-teal-700 font-bold uppercase tracking-wider mb-3 border-b border-teal-100 pb-2 flex items-center gap-2">
-                <span className="text-xl">★</span>{" "}
-                <Editable value={labels.summary} onUpdate={(v) => onUpdate(["labels", "summary"], v)} />
-              </h3>
-              <Editable
-                tag="p"
-                className="text-gray-600 leading-relaxed"
-                value={data.summary}
-                onUpdate={(v) => onUpdate(["summary"], v)}
-              />
-            </section>
-
-            <section>
-              <h3 className="text-teal-700 font-bold uppercase tracking-wider mb-6 border-b border-teal-100 pb-2 flex items-center gap-2">
-                <span className="text-xl">💼</span>{" "}
-                <Editable value={labels.experience} onUpdate={(v) => onUpdate(["labels", "experience"], v)} />
-              </h3>
-              <div className="space-y-8">
-                {data.experience.map((exp, idx) => (
-                  <div key={exp.id} className="relative pl-4 border-l-2 border-teal-200">
-                    <div className="flex justify-between items-start mb-1">
-                      <Editable
-                        tag="h4"
-                        className="text-xl font-bold text-gray-800"
-                        value={exp.role}
-                        onUpdate={(v) => onUpdate(["experience", idx, "role"], v)}
-                      />
-                      <Editable
-                        tag="span"
-                        className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded-full"
-                        value={exp.duration}
-                        onUpdate={(v) => onUpdate(["experience", idx, "duration"], v)}
-                      />
-                    </div>
-                    <Editable
-                      className="text-gray-500 font-medium mb-2 block"
-                      value={exp.company}
-                      onUpdate={(v) => onUpdate(["experience", idx, "company"], v)}
-                    />
-                    <ul className="list-disc list-outside ml-4 text-gray-600 space-y-1.5 text-sm">
-                      {exp.description.map((desc, i) => (
-                        <li key={i}>
-                          <Editable value={desc} onUpdate={(v) => onUpdate(["experience", idx, "description", i], v)} />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-
-          <div className="col-span-1 bg-gray-50 p-6 rounded-xl h-fit">
-            <section className="mb-8">
-              <h3 className="text-teal-700 font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-1">
-                <Editable value={labels.skills} onUpdate={(v) => onUpdate(["labels", "skills"], v)} />
-              </h3>
-              <div className="space-y-4">
-                {data.skills.map((skill, idx) => (
-                  <div key={idx}>
-                    <Editable
-                      className="text-xs font-bold text-gray-400 uppercase mb-1 block"
-                      value={skill.category}
-                      onUpdate={(v) => onUpdate(["skills", idx, "category"], v)}
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {skill.items.map((item, i) => (
-                        <span
-                          key={i}
-                          className="bg-white border border-gray-200 text-teal-700 px-2 py-1 rounded text-xs font-medium"
-                        >
-                          <Editable value={item} onUpdate={(v) => onUpdate(["skills", idx, "items", i], v)} />
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="mb-8">
-              <h3 className="text-teal-700 font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-1">
-                <Editable value={labels.languages} onUpdate={(v) => onUpdate(["labels", "languages"], v)} />
-              </h3>
-              <div className="space-y-2 text-sm">
-                {data.languages.map((l, i) => (
-                  <div key={i} className="flex justify-between">
-                    <Editable value={l.language} onUpdate={(v) => onUpdate(["languages", i, "language"], v)} />
-                    <Editable
-                      className="text-gray-500"
-                      value={l.proficiency}
-                      onUpdate={(v) => onUpdate(["languages", i, "proficiency"], v)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="mb-8">
-              <h3 className="text-teal-700 font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-1">
-                <Editable value={labels.education} onUpdate={(v) => onUpdate(["labels", "education"], v)} />
-              </h3>
-              {data.education.map((edu, idx) => (
-                <div key={edu.id} className="mb-3">
-                  <Editable
-                    className="font-bold text-gray-800 text-sm block"
-                    value={edu.school}
-                    onUpdate={(v) => onUpdate(["education", idx, "school"], v)}
-                  />
-                  <Editable
-                    className="text-xs text-gray-600 block"
-                    value={edu.degree}
-                    onUpdate={(v) => onUpdate(["education", idx, "degree"], v)}
-                  />
-                  <Editable
-                    className="text-xs text-teal-500 block"
-                    value={edu.year}
-                    onUpdate={(v) => onUpdate(["education", idx, "year"], v)}
-                  />
-                </div>
-              ))}
-            </section>
-
-            <section>
-              <h3 className="text-teal-700 font-bold uppercase tracking-wider mb-4 border-b border-gray-200 pb-1">
-                <Editable value={labels.interests} onUpdate={(v) => onUpdate(["labels", "interests"], v)} />
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {data.interests.map((int, i) => (
-                  <span key={i} className="text-xs text-gray-600 bg-gray-200 px-2 py-1 rounded-full">
-                    <Editable value={int} onUpdate={(v) => onUpdate(["interests", i], v)} />
-                  </span>
-                ))}
-              </div>
-            </section>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // --- MARKETING 1 ---
   if (style === "marketing-1") {
@@ -1160,22 +790,6 @@ const TemplateRenderer = ({
                     />
                   </div>
                 ))}
-              </div>
-
-              <div>
-                <Editable
-                  tag="h3"
-                  className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4 border-b border-gray-700 pb-1 block"
-                  value={labels.interests}
-                  onUpdate={(v) => onUpdate(["labels", "interests"], v)}
-                />
-                <div className="flex flex-wrap gap-2">
-                  {data.interests.map((l, i) => (
-                    <span key={i} className="text-[10px] bg-gray-800 px-2 py-1 rounded text-gray-300">
-                      <Editable value={l} onUpdate={(v) => onUpdate(["interests", i], v)} />
-                    </span>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
