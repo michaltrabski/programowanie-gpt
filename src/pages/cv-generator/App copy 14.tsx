@@ -471,9 +471,6 @@ const CVGenerator: React.FC = () => {
 
       const result = await response.json();
 
-      // --- LOGGING BACKEND RESPONSE ---
-      console.log("Backend Response:", result);
-
       if (result.status === "success") {
         let cleanContent = result.answer;
         if (cleanContent) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // --- Constants ---
 // Ensure this matches your actual server URL
-const ENDPOINT_URL = "https://serwer2518023.home.pl/programowanie-gpt/cv-generator/endpoint.php";
+const ENDPOINT_URL = "https://serwer2518023.home.pl/programowanie-gpt/endpoint.php";
 const DEFAULT_MARGIN_TOP = 50;
 const DEFAULT_MARGIN_BOTTOM = 0;
 
@@ -354,9 +354,8 @@ const CVGenerator: React.FC = () => {
     return "/cv.png";
   });
 
-  // --- Modal & AI States ---
+  // --- NEW: Modal State ---
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false); // Global loading state
 
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -366,6 +365,12 @@ const CVGenerator: React.FC = () => {
     const newData = setDeepValue(data, path, newValue);
     setData(newData);
     setJsonString(JSON.stringify(newData, null, 2));
+  };
+
+  // --- New: Callback to handle data received from modal ---
+  const handleApplyGeneratedData = (newDataString: string) => {
+    setJsonString(newDataString);
+    setIsPromptModalOpen(false); // Close modal on success
   };
 
   // --- Effects for Persistence ---
@@ -455,49 +460,8 @@ const CVGenerator: React.FC = () => {
     if (e.target.files?.[0]) processFile(e.target.files[0]);
   };
 
-  // --- API Handler (Main Logic) ---
-  const handleGenerateCV = async (prompt: string) => {
-    // 1. Close Modal Immediately
-    setIsPromptModalOpen(false);
-    // 2. Show Global Loader
-    setIsGenerating(true);
-
-    try {
-      const response = await fetch(ENDPOINT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt }),
-      });
-
-      const result = await response.json();
-
-      // --- LOGGING BACKEND RESPONSE ---
-      console.log("Backend Response:", result);
-
-      if (result.status === "success") {
-        let cleanContent = result.answer;
-        if (cleanContent) {
-          cleanContent = cleanContent
-            .replace(/^```json\s*/, "")
-            .replace(/^```\s*/, "")
-            .replace(/\s*```$/, "");
-
-          setJsonString(cleanContent); // Update data
-        }
-      } else {
-        const errMsg = result.message || JSON.stringify(result.details) || "Unknown error";
-        alert(`Generation Error: ${errMsg}`);
-      }
-    } catch (error) {
-      alert("Network error: Unable to reach the endpoint.");
-    } finally {
-      // 3. Hide Global Loader
-      setIsGenerating(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[#f3f4f6] p-6 font-sans relative">
+    <div className="min-h-screen bg-[#f3f4f6] p-6 font-sans">
       <style>{`
         @media print {
           @page { margin: 0; margin-top: ${marginTop}px; margin-bottom: ${marginBottom}px; size: auto; }
@@ -509,35 +473,17 @@ const CVGenerator: React.FC = () => {
         }
       `}</style>
 
-      {/* --- GLOBAL LOADING OVERLAY --- */}
-      {isGenerating && (
-        <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
-          <h2 className="text-2xl font-bold">Generating CV...</h2>
-          <p className="text-gray-300 mt-2">Please wait while AI writes your resume.</p>
-        </div>
-      )}
-
       <div className="main-layout max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* --- LEFT PANEL: CONTROLS --- */}
         <div className="no-print lg:col-span-4 flex flex-col gap-4 h-[calc(100vh-3rem)] sticky top-6">
           <div className="bg-white rounded-xl shadow-md p-4 flex flex-col h-full border border-gray-200 overflow-y-auto">
-            {/* --- BUTTON GROUP: Prompt & Download --- */}
-            <div className="mb-6 space-y-2">
+            {/* --- NEW BUTTON: Create Prompt --- */}
+            <div className="mb-6">
               <button
                 onClick={() => setIsPromptModalOpen(true)}
                 className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
               >
                 <span className="text-lg">✨</span> Create ChatGPT Prompt
-              </button>
-
-              {/* MOVED DOWNLOAD BUTTON HERE */}
-              <button
-                onClick={handlePrint}
-                disabled={!!error}
-                className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] disabled:bg-[#93c5fd] text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
-              >
-                <DownloadIcon /> Download PDF
               </button>
             </div>
 
@@ -667,6 +613,14 @@ const CVGenerator: React.FC = () => {
               spellCheck={false}
             />
             {error && <div className="text-red-500 text-xs font-bold bg-red-50 p-2 rounded mb-2">⚠️ {error}</div>}
+
+            <button
+              onClick={handlePrint}
+              disabled={!!error}
+              className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] disabled:bg-[#93c5fd] text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <DownloadIcon /> Download PDF
+            </button>
           </div>
         </div>
 
@@ -684,7 +638,7 @@ const CVGenerator: React.FC = () => {
       <PromptModal
         isOpen={isPromptModalOpen}
         onClose={() => setIsPromptModalOpen(false)}
-        onGenerate={handleGenerateCV}
+        onApplyData={handleApplyGeneratedData}
       />
     </div>
   );
@@ -714,11 +668,11 @@ const StyleGroup = ({ title, styles, current, set, labels }: any) => (
 const PromptModal = ({
   isOpen,
   onClose,
-  onGenerate,
+  onApplyData,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (prompt: string) => void;
+  onApplyData: (data: string) => void;
 }) => {
   // 1. State for Job Description
   const [jobDescription, setJobDescription] = useState(() => {
@@ -736,6 +690,10 @@ const PromptModal = ({
     return "";
   });
 
+  // 3. State for API handling
+  const [isLoading, setIsLoading] = useState(false);
+  const [responseData, setResponseData] = useState<string | null>(null);
+
   // Persistence Effects
   useEffect(() => {
     localStorage.setItem("prompt_jobDescription", jobDescription);
@@ -748,7 +706,9 @@ const PromptModal = ({
   if (!isOpen) return null;
 
   // 4. Construct the Prompt for Preview
-  const finalPrompt = `
+  const finalPrompt = `Chcę napisać moje CV.
+Na podstawie opisu oferty pracy i informacji o mnie, napisz dla mnie cv:
+CV napisz w tym samym języku co opis oferty pracy.
 
 <opis-oferty-pracy>
 ${jobDescription}
@@ -758,11 +718,148 @@ ${jobDescription}
 ${userInformation}
 </informacje-o-mnie>
 
+Moje nowe CV powinno być podane w formacie JSON.
+
+{
+  labels: {
+    summary: "About me",
+    experience: "Experience",
+    education: "Education",
+    skills: "Skills",
+    languages: "Languages",
+    interests: "Interests",
+  },
+  fullName: "",
+  title: "",
+  summary: [
+    {
+      id: "1",
+      main: "wymaganie 1",
+      text: "opisz jak dobrze spełniam wymaganie 1",
+    },
+    {
+      id: "2",
+      main: "wymaganie 2",
+      text: "opisz jak dobrze spełniam wymaganie 2",
+    },
+    ... kontynuuj dla wszystkich wymagań podanych w ofercie pracy
+  ],
+  contact: {
+    email: "",
+    phone: "",
+    linkedin: "",
+    location: "",
+  },
+  skills: [
+    {
+      category: "",
+      items: [
+        "",
+        "",
+        ...
+      ],
+    },
+    {
+      category: "",
+      items: [
+        "",
+        "",
+        ...
+      ],
+    },
+  ],
+  languages: [
+    {
+      language: "",
+      proficiency: "",
+    },
+    {
+      language: "",
+      proficiency: "",
+    },
+  ],
+  interests: ["", "", ...],
+  experience: [
+    {
+      id: "1",
+      role: "",
+      company: "",
+      duration: "",
+      description: [
+        "",
+            "",
+            ...
+        ],
+    },
+    {
+      id: "2",
+      role: "",
+      company: "",
+      duration: "",
+      description: [
+        "",
+            "",
+            ...
+        ],
+    },
+    ...
+  ],
+  education: [
+    {
+      id: "1",
+      degree: "",
+      school: "",
+      year: "",
+    },
+    ...
+  ],
+};
+ 
 `;
+
+  // --- API Handler ---
+  const handleSendToChatGPT = async () => {
+    if (!jobDescription || !userInformation) return;
+
+    setIsLoading(true);
+    setResponseData(null); // Clear previous data
+
+    try {
+      const response = await fetch(ENDPOINT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // IMPORTANT: Sending 'message' key to match PHP code
+        body: JSON.stringify({ message: finalPrompt }),
+      });
+
+      const result = await response.json();
+
+      if (result.status === "success") {
+        // Success: Extract the AI answer
+        let cleanContent = result.answer;
+        // Clean markdown code blocks often returned by GPT (```json ... ```)
+        if (cleanContent) {
+          cleanContent = cleanContent
+            .replace(/^```json\s*/, "")
+            .replace(/^```\s*/, "")
+            .replace(/\s*```$/, "");
+        }
+        setResponseData(cleanContent);
+      } else {
+        // Handle API errors from PHP (e.g. rate limit, OpenAI error)
+        const errMsg = result.message || JSON.stringify(result.details) || "Unknown error occurred";
+        setResponseData(`Error: ${errMsg}`);
+      }
+    } catch (error) {
+      setResponseData("Network error: Unable to reach the endpoint.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 print:hidden">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
           <h2 className="font-bold text-gray-800 flex items-center gap-2">
@@ -778,26 +875,58 @@ ${userInformation}
           </button>
         </div>
 
-        {/* Body - Vertical Layout for Inputs */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-gray-500 uppercase">1. Job Description</label>
-            <textarea
-              className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
-              placeholder="Paste the job requirements here..."
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-            />
+        {/* Body - Grid Layout for Inputs */}
+        <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column: Inputs */}
+          <div className="space-y-6">
+            <div className="flex flex-col h-[45%]">
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">1. Job Description</label>
+              <textarea
+                className="flex-1 w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+                placeholder="Paste the job requirements here..."
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col h-[45%]">
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">2. Your Current Info</label>
+              <textarea
+                className="flex-1 w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+                placeholder="Paste your old CV text or JSON here..."
+                value={userInformation}
+                onChange={(e) => setUserInformation(e.target.value)}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-gray-500 uppercase">2. Your Current Info</label>
-            <textarea
-              className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
-              placeholder="Paste your old CV text or JSON here..."
-              value={userInformation}
-              onChange={(e) => setUserInformation(e.target.value)}
-            />
+          {/* Right Column: Result / Preview */}
+          <div className="flex flex-col h-full">
+            <label
+              className={`block text-xs font-bold uppercase mb-2 ${responseData ? "text-green-600" : "text-gray-500"}`}
+            >
+              {responseData ? "3. Data Received from AI" : "Preview Request Payload"}
+            </label>
+            <div className="relative flex-1">
+              <textarea
+                readOnly
+                className={`w-full h-full p-4 text-xs font-mono rounded-lg focus:outline-none resize-none border ${
+                  responseData
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-gray-100 border-gray-200 text-gray-500"
+                }`}
+                value={isLoading ? "Generating response..." : responseData || finalPrompt}
+              />
+
+              {/* If we have valid response data, show Apply button inside the preview area (optional placement) */}
+              {responseData && (
+                <div className="absolute top-2 right-2">
+                  <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded">
+                    Ready to Apply
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -807,16 +936,55 @@ ${userInformation}
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition"
           >
-            Cancel
+            Close
           </button>
 
-          <button
-            onClick={() => onGenerate(finalPrompt)}
-            disabled={!jobDescription || !userInformation}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-bold rounded-lg shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Send Request
-          </button>
+          {/* Send Button */}
+          {!responseData && (
+            <button
+              onClick={handleSendToChatGPT}
+              disabled={isLoading || !jobDescription || !userInformation}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-sm font-bold rounded-lg shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Sending...
+                </>
+              ) : (
+                <>Send Request</>
+              )}
+            </button>
+          )}
+
+          {/* Apply Button (Only appears when data is received) */}
+          {responseData && (
+            <button
+              onClick={() => onApplyData(responseData)}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg shadow-md transition-all flex items-center gap-2"
+            >
+              Apply to CV
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1043,6 +1211,50 @@ const TemplateRenderer = ({
 };
 
 // --- Icons ---
+const MailIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect width="20" height="16" x="2" y="4" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+  </svg>
+);
+const PhoneIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+const MapPinIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
 const DownloadIcon = () => (
   <svg
     width="20"
