@@ -6,6 +6,7 @@ const DEFAULT_MARGIN_TOP = 50;
 const DEFAULT_MARGIN_BOTTOM = 0;
 
 // --- Types ---
+// Updated to only include the requested styles
 type CVStyle = "ecommerce-1" | "ecommerce-2";
 
 interface ContactInfo {
@@ -29,7 +30,10 @@ interface Education {
   year: string;
 }
 
-// REMOVED: interface SkillSet (no longer needed)
+interface SkillSet {
+  category: string;
+  items: string[];
+}
 
 interface Language {
   language: string;
@@ -57,7 +61,7 @@ interface CVData {
   title: string;
   aboutMe: SummaryItem[];
   contact: ContactInfo;
-  skills: string[]; // CHANGED: Simple array of strings
+  skills: SkillSet[];
   languages: Language[];
   interests: string[];
   experience: Experience[];
@@ -105,20 +109,26 @@ const INITIAL_DATA: CVData = {
   ],
   contact: {
     email: "jan.kowalski@example.com",
-    phone: "+48 000 000 000",
+    phone: "+48 555 019 283",
     location: "Warszawa, Polska",
   },
-  // CHANGED: Flattened skills array
   skills: [
-    "React.js / Next.js",
-    "TypeScript",
-    "JavaScript (ES6+)",
-    "Redux Toolkit / React Query",
-    "Tailwind CSS / SCSS",
-    "Jest / React Testing Library",
-    "Git / CI/CD Actions",
-    "Responsive Web Design",
-    "Dostępność (WCAG)",
+    {
+      category: "Technologie",
+      items: [
+        "React.js / Next.js",
+        "TypeScript",
+        "JavaScript (ES6+)",
+        "Redux Toolkit / React Query",
+        "Tailwind CSS / SCSS",
+        "Jest / React Testing Library",
+        "Git / CI/CD Actions",
+      ],
+    },
+    {
+      category: "Kompetencje",
+      items: ["Responsive Web Design", "Dostępność (WCAG)", "Optymalizacja wydajności", "REST & GraphQL APIs"],
+    },
   ],
   languages: [
     {
@@ -130,7 +140,7 @@ const INITIAL_DATA: CVData = {
       proficiency: "C1 (Zaawansowany)",
     },
   ],
-  interests: ["Podróże", "Fotografia", "Nowe technologie", "Snowboard"],
+  interests: ["Podróże"],
   experience: [
     {
       id: "1",
@@ -211,23 +221,18 @@ const sanitizeCVData = (parsed: any): CVData => {
   safeData.aboutMe = Array.isArray(safeData.aboutMe) ? safeData.aboutMe : [];
   safeData.experience = Array.isArray(safeData.experience) ? safeData.experience : [];
   safeData.education = Array.isArray(safeData.education) ? safeData.education : [];
-
-  // Ensure skills is array. If it was object array (old version), we might need to flatten,
-  // but for now we just ensure it's an array.
   safeData.skills = Array.isArray(safeData.skills) ? safeData.skills : [];
-  // Basic cleanup: if user pastes old JSON, skills might be objects.
-  // We filter to ensure strings to prevent crash.
-  if (safeData.skills.length > 0 && typeof safeData.skills[0] !== "string") {
-    // Fallback or attempt to extract items if possible, otherwise reset
-    safeData.skills = INITIAL_DATA.skills;
-  }
-
   safeData.languages = Array.isArray(safeData.languages) ? safeData.languages : [];
   safeData.interests = Array.isArray(safeData.interests) ? safeData.interests : [];
 
   safeData.experience = safeData.experience.map((exp: any) => ({
     ...exp,
     description: Array.isArray(exp.description) ? exp.description : [],
+  }));
+
+  safeData.skills = safeData.skills.map((skill: any) => ({
+    ...skill,
+    items: Array.isArray(skill.items) ? skill.items : [],
   }));
 
   if (safeData.aboutMe.length > 0 && typeof safeData.aboutMe[0] === "string") {
@@ -327,7 +332,7 @@ const Editable: React.FC<EditableProps> = ({
   );
 };
 
-// --- COMPONENT: Removable Wrapper ---
+// --- COMPONENT: Removable Wrapper (Updated) ---
 interface RemovableProps {
   children: React.ReactNode;
   onRemove: () => void;
@@ -1110,12 +1115,29 @@ const TemplateRenderer = ({
                 value={labels.skills}
                 onUpdate={(v) => onUpdate(["labels", "skills"], v)}
               />
-              <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+              <div className="space-y-4">
                 {data.skills.map((skill, idx) => (
                   <Removable key={idx} onRemove={() => onRemove(["skills"], idx)}>
-                    <span className="bg-gray-100 px-2 py-1 rounded border border-gray-200 inline-block">
-                      <Editable value={skill} onUpdate={(v) => onUpdate(["skills", idx], v)} />
-                    </span>
+                    <div>
+                      <Editable
+                        className="font-bold text-sm border-b border-gray-300 block mb-1"
+                        value={skill.category}
+                        onUpdate={(v) => onUpdate(["skills", idx, "category"], v)}
+                      />
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm text-gray-600">
+                        {skill.items.map((item, i) => (
+                          <Removable
+                            key={i}
+                            onRemove={() => onRemove(["skills", idx, "items"], i)}
+                            className="inline-block"
+                          >
+                            <span className="after:content-[','] last:after:content-['']">
+                              <Editable value={item} onUpdate={(v) => onUpdate(["skills", idx, "items", i], v)} />
+                            </span>
+                          </Removable>
+                        ))}
+                      </div>
+                    </div>
                   </Removable>
                 ))}
               </div>
@@ -1142,24 +1164,6 @@ const TemplateRenderer = ({
                         onUpdate={(v) => onUpdate(["languages", idx, "proficiency"], v)}
                       />
                     </div>
-                  </Removable>
-                ))}
-              </div>
-            </section>
-            {/* Added Interests Section */}
-            <section>
-              <Editable
-                tag="h3"
-                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
-                value={labels.interests}
-                onUpdate={(v) => onUpdate(["labels", "interests"], v)}
-              />
-              <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm text-gray-600">
-                {data.interests.map((interest, idx) => (
-                  <Removable key={idx} onRemove={() => onRemove(["interests"], idx)} className="inline-block">
-                    <span className="after:content-[','] last:after:content-['']">
-                      <Editable value={interest} onUpdate={(v) => onUpdate(["interests", idx], v)} />
-                    </span>
                   </Removable>
                 ))}
               </div>
@@ -1232,7 +1236,7 @@ const TemplateRenderer = ({
             </div>
           </div>
 
-          {/* Skills Section (Simplified) */}
+          {/* Skills Section */}
           <div>
             <Editable
               tag="h3"
@@ -1240,18 +1244,35 @@ const TemplateRenderer = ({
               value={labels.skills}
               onUpdate={(v) => onUpdate(["labels", "skills"], v)}
             />
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-4">
               {data.skills.map((skill, idx) => (
                 <Removable key={idx} onRemove={() => onRemove(["skills"], idx)}>
-                  <span className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 inline-block">
-                    <Editable value={skill} onUpdate={(v) => onUpdate(["skills", idx], v)} />
-                  </span>
+                  <div>
+                    <Editable
+                      className="font-bold text-sm block mb-1 text-blue-300"
+                      value={skill.category}
+                      onUpdate={(v) => onUpdate(["skills", idx, "category"], v)}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {skill.items.map((item, i) => (
+                        <Removable
+                          key={i}
+                          onRemove={() => onRemove(["skills", idx, "items"], i)}
+                          className="inline-block"
+                        >
+                          <span className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 inline-block">
+                            <Editable value={item} onUpdate={(v) => onUpdate(["skills", idx, "items", i], v)} />
+                          </span>
+                        </Removable>
+                      ))}
+                    </div>
+                  </div>
                 </Removable>
               ))}
             </div>
           </div>
 
-          {/* Languages Section */}
+          {/* NEW: Languages Section */}
           <div>
             <Editable
               tag="h3"
@@ -1274,25 +1295,6 @@ const TemplateRenderer = ({
                       onUpdate={(v) => onUpdate(["languages", idx, "proficiency"], v)}
                     />
                   </div>
-                </Removable>
-              ))}
-            </div>
-          </div>
-
-          {/* Added Interests Section */}
-          <div>
-            <Editable
-              tag="h3"
-              className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-700 pb-1"
-              value={labels.interests}
-              onUpdate={(v) => onUpdate(["labels", "interests"], v)}
-            />
-            <div className="flex flex-wrap gap-2">
-              {data.interests.map((interest, idx) => (
-                <Removable key={idx} onRemove={() => onRemove(["interests"], idx)}>
-                  <span className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 inline-block border border-gray-700">
-                    <Editable value={interest} onUpdate={(v) => onUpdate(["interests", idx], v)} />
-                  </span>
                 </Removable>
               ))}
             </div>

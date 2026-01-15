@@ -1,17 +1,27 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // --- Constants ---
+// Ensure this matches your actual server URL
 const ENDPOINT_URL = "https://serwer2518023.home.pl/programowanie-gpt/cv-generator/endpoint.php";
 const DEFAULT_MARGIN_TOP = 50;
 const DEFAULT_MARGIN_BOTTOM = 0;
 
 // --- Types ---
-type CVStyle = "ecommerce-1" | "ecommerce-2";
+type CVStyle =
+  | "marketing-1"
+  | "marketing-2"
+  | "logistics-1"
+  | "logistics-2"
+  | "engineering-1"
+  | "engineering-2"
+  | "ecommerce-1"
+  | "ecommerce-2";
 
 interface ContactInfo {
   email: string;
   phone: string;
   location: string;
+  // linkedin removed
 }
 
 interface Experience {
@@ -29,7 +39,10 @@ interface Education {
   year: string;
 }
 
-// REMOVED: interface SkillSet (no longer needed)
+interface SkillSet {
+  category: string;
+  items: string[];
+}
 
 interface Language {
   language: string;
@@ -37,7 +50,7 @@ interface Language {
 }
 
 interface CVLabels {
-  aboutMe: string;
+  summary: string;
   experience: string;
   education: string;
   skills: string;
@@ -55,29 +68,19 @@ interface CVData {
   labels: CVLabels;
   fullName: string;
   title: string;
-  aboutMe: SummaryItem[];
+  summary: SummaryItem[];
   contact: ContactInfo;
-  skills: string[]; // CHANGED: Simple array of strings
+  skills: SkillSet[];
   languages: Language[];
   interests: string[];
   experience: Experience[];
   education: Education[];
 }
 
-// --- Interface for History ---
-interface HistoryItem {
-  id: string;
-  name: string;
-  timestamp: number;
-  data: CVData;
-  style: CVStyle;
-  image: string | null;
-}
-
-// --- Initial Data ---
+// --- Initial Data (Translated to Polish) ---
 const INITIAL_DATA: CVData = {
   labels: {
-    aboutMe: "O mnie",
+    summary: "O mnie",
     experience: "Doświadczenie",
     education: "Edukacja",
     skills: "Umiejętności",
@@ -86,7 +89,7 @@ const INITIAL_DATA: CVData = {
   },
   fullName: "Jan Kowalski",
   title: "Senior Frontend Developer",
-  aboutMe: [
+  summary: [
     {
       id: "1",
       main: "Ekspert w ekosystemie JavaScript",
@@ -105,20 +108,32 @@ const INITIAL_DATA: CVData = {
   ],
   contact: {
     email: "jan.kowalski@example.com",
-    phone: "+48 000 000 000",
+    phone: "+48 555 019 283",
     location: "Warszawa, Polska",
   },
-  // CHANGED: Flattened skills array
   skills: [
-    "React.js / Next.js",
-    "TypeScript",
-    "JavaScript (ES6+)",
-    "Redux Toolkit / React Query",
-    "Tailwind CSS / SCSS",
-    "Jest / React Testing Library",
-    "Git / CI/CD Actions",
-    "Responsive Web Design",
-    "Dostępność (WCAG)",
+    {
+      category: "Technologie",
+      items: [
+        "React.js / Next.js",
+        "TypeScript",
+        "JavaScript (ES6+)",
+        "Redux Toolkit / React Query",
+        "Tailwind CSS / SCSS",
+        "Jest / React Testing Library",
+        "Git / CI/CD Actions",
+      ],
+    },
+    {
+      category: "Kompetencje",
+      items: [
+        "Responsive Web Design",
+        "Dostępność (WCAG)",
+        "Optymalizacja wydajności",
+        "Zarządzanie stanem",
+        "REST & GraphQL APIs",
+      ],
+    },
   ],
   languages: [
     {
@@ -130,7 +145,7 @@ const INITIAL_DATA: CVData = {
       proficiency: "C1 (Zaawansowany)",
     },
   ],
-  interests: ["Podróże", "Fotografia", "Nowe technologie", "Snowboard"],
+  interests: ["Open Source", "Trendy UI/UX", "Blogowanie technologiczne", "Turystyka górska"],
   experience: [
     {
       id: "1",
@@ -179,49 +194,14 @@ const setDeepValue = (obj: any, path: (string | number)[], value: any): any => {
   return newObj;
 };
 
-// --- Helper: Remove Item from Array ---
-const removeDeepItem = (obj: any, path: (string | number)[], indexToRemove: number): any => {
-  const newObj = Array.isArray(obj) ? [...obj] : { ...obj };
-  let current = newObj;
-
-  // Navigate to the array container
-  for (let i = 0; i < path.length; i++) {
-    const key = path[i];
-    current[key] = Array.isArray(current[key]) ? [...current[key]] : { ...current[key] };
-    current = current[key];
-  }
-
-  // Current is now the array
-  if (Array.isArray(current)) {
-    current.splice(indexToRemove, 1);
-  }
-
-  return newObj;
-};
-
 // --- Helper: Data Sanitizer ---
 const sanitizeCVData = (parsed: any): CVData => {
   const safeData = { ...INITIAL_DATA, ...parsed };
 
-  // --- COMPATIBILITY FIX: Handle if backend returns 'summary' instead of 'aboutMe' ---
-  if (parsed.summary && !parsed.aboutMe) {
-    safeData.aboutMe = parsed.summary;
-  }
-
-  safeData.aboutMe = Array.isArray(safeData.aboutMe) ? safeData.aboutMe : [];
+  safeData.summary = Array.isArray(safeData.summary) ? safeData.summary : [];
   safeData.experience = Array.isArray(safeData.experience) ? safeData.experience : [];
   safeData.education = Array.isArray(safeData.education) ? safeData.education : [];
-
-  // Ensure skills is array. If it was object array (old version), we might need to flatten,
-  // but for now we just ensure it's an array.
   safeData.skills = Array.isArray(safeData.skills) ? safeData.skills : [];
-  // Basic cleanup: if user pastes old JSON, skills might be objects.
-  // We filter to ensure strings to prevent crash.
-  if (safeData.skills.length > 0 && typeof safeData.skills[0] !== "string") {
-    // Fallback or attempt to extract items if possible, otherwise reset
-    safeData.skills = INITIAL_DATA.skills;
-  }
-
   safeData.languages = Array.isArray(safeData.languages) ? safeData.languages : [];
   safeData.interests = Array.isArray(safeData.interests) ? safeData.interests : [];
 
@@ -230,8 +210,13 @@ const sanitizeCVData = (parsed: any): CVData => {
     description: Array.isArray(exp.description) ? exp.description : [],
   }));
 
-  if (safeData.aboutMe.length > 0 && typeof safeData.aboutMe[0] === "string") {
-    safeData.aboutMe = [{ id: "1", main: "O mnie", text: safeData.aboutMe[0] }];
+  safeData.skills = safeData.skills.map((skill: any) => ({
+    ...skill,
+    items: Array.isArray(skill.items) ? skill.items : [],
+  }));
+
+  if (safeData.summary.length > 0 && typeof safeData.summary[0] === "string") {
+    safeData.summary = [{ id: "1", main: "Podsumowanie", text: safeData.summary[0] }];
   }
 
   return safeData;
@@ -327,35 +312,9 @@ const Editable: React.FC<EditableProps> = ({
   );
 };
 
-// --- COMPONENT: Removable Wrapper ---
-interface RemovableProps {
-  children: React.ReactNode;
-  onRemove: () => void;
-  className?: string;
-}
-
-const Removable: React.FC<RemovableProps> = ({ children, onRemove, className = "" }) => {
-  return (
-    <div className={`relative group transition-all ${className}`}>
-      {children}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        contentEditable={false}
-        className="absolute -right-6 top-0 opacity-0 group-hover:opacity-100 bg-red-500 text-white hover:bg-red-600 transition-opacity p-1 no-print z-50 cursor-pointer flex items-center justify-center rounded-full shadow-md h-5 w-5 border border-red-700"
-        title="Usuń element"
-      >
-        <span className="text-xs font-bold leading-none">✕</span>
-      </button>
-    </div>
-  );
-};
-
 // --- Main Component ---
 const CVGenerator: React.FC = () => {
-  // State Initialization
+  // --- Margin States (Persisted) ---
   const [marginTop, setMarginTop] = useState<number>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("cv_marginTop");
@@ -382,12 +341,7 @@ const CVGenerator: React.FC = () => {
 
   const [data, setData] = useState<CVData>(INITIAL_DATA);
   const [selectedStyle, setSelectedStyle] = useState<CVStyle>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("cv_style") as CVStyle;
-      if (saved === "ecommerce-1" || saved === "ecommerce-2") {
-        return saved;
-      }
-    }
+    if (typeof window !== "undefined") return (localStorage.getItem("cv_style") as CVStyle) || "ecommerce-1";
     return "ecommerce-1";
   });
 
@@ -399,23 +353,10 @@ const CVGenerator: React.FC = () => {
     return "/cv.png";
   });
 
-  // History State
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("cv_history_list");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          return [];
-        }
-      }
-    }
-    return [];
-  });
-
+  // --- Modal & AI States ---
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // Global loading state
+
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -426,13 +367,7 @@ const CVGenerator: React.FC = () => {
     setJsonString(JSON.stringify(newData, null, 2));
   };
 
-  const handleRemoveItem = (path: (string | number)[], index: number) => {
-    const newData = removeDeepItem(data, path, index);
-    setData(newData);
-    setJsonString(JSON.stringify(newData, null, 2));
-  };
-
-  // --- Effects ---
+  // --- Effects for Persistence ---
   useEffect(() => {
     localStorage.setItem("cv_marginTop", marginTop.toString());
   }, [marginTop]);
@@ -470,47 +405,6 @@ const CVGenerator: React.FC = () => {
       localStorage.removeItem("cv_image");
     }
   }, [profileImage]);
-
-  // Persist History
-  useEffect(() => {
-    try {
-      localStorage.setItem("cv_history_list", JSON.stringify(history));
-    } catch (e) {
-      alert("Błąd zapisu historii: Pamięć przeglądarki jest pełna (prawdopodobnie przez zdjęcia).");
-    }
-  }, [history]);
-
-  // --- History Handlers ---
-  const handleSaveToHistory = () => {
-    const name = prompt("Podaj nazwę dla tej wersji CV:", `Wersja ${new Date().toLocaleTimeString()}`);
-    if (!name) return;
-
-    const newItem: HistoryItem = {
-      id: Date.now().toString(),
-      name,
-      timestamp: Date.now(),
-      data: JSON.parse(JSON.stringify(data)), // Deep copy
-      style: selectedStyle,
-      image: profileImage,
-    };
-
-    setHistory((prev) => [newItem, ...prev]);
-  };
-
-  const handleLoadHistory = (item: HistoryItem) => {
-    if (window.confirm(`Czy na pewno wczytać wersję "${item.name}"? Obecne zmiany zostaną nadpisane.`)) {
-      setData(item.data);
-      setJsonString(JSON.stringify(item.data, null, 2));
-      setSelectedStyle(item.style);
-      setProfileImage(item.image);
-    }
-  };
-
-  const handleDeleteHistory = (id: string) => {
-    if (window.confirm("Usunąć tę wersję z historii?")) {
-      setHistory((prev) => prev.filter((item) => item.id !== id));
-    }
-  };
 
   const handlePrint = () => window.print();
 
@@ -560,8 +454,11 @@ const CVGenerator: React.FC = () => {
     if (e.target.files?.[0]) processFile(e.target.files[0]);
   };
 
+  // --- API Handler (Main Logic) ---
   const handleGenerateCV = async (prompt: string) => {
+    // 1. Close Modal Immediately
     setIsPromptModalOpen(false);
+    // 2. Show Global Loader
     setIsGenerating(true);
 
     try {
@@ -573,6 +470,9 @@ const CVGenerator: React.FC = () => {
 
       const result = await response.json();
 
+      // --- LOGGING BACKEND RESPONSE ---
+      console.log("Backend Response:", result);
+
       if (result.status === "success") {
         let cleanContent = result.answer;
         if (cleanContent) {
@@ -581,24 +481,7 @@ const CVGenerator: React.FC = () => {
             .replace(/^```\s*/, "")
             .replace(/\s*```$/, "");
 
-          // Parse new data first
-          const parsedData = JSON.parse(cleanContent);
-          const sanitizedData = sanitizeCVData(parsedData);
-
-          // Update Editor Data
-          setJsonString(cleanContent);
-          // Note: setData is handled by the useEffect on jsonString, but for history we need immediate access
-
-          // AUTOMATIC HISTORY SAVE
-          const newItem: HistoryItem = {
-            id: Date.now().toString(),
-            name: `AI Generacja ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-            timestamp: Date.now(),
-            data: sanitizedData, // Use the new data
-            style: selectedStyle,
-            image: profileImage,
-          };
-          setHistory((prev) => [newItem, ...prev]);
+          setJsonString(cleanContent); // Update data
         }
       } else {
         const errMsg = result.message || JSON.stringify(result.details) || "Nieznany błąd";
@@ -607,6 +490,7 @@ const CVGenerator: React.FC = () => {
     } catch (error) {
       alert("Błąd sieci: Nie można połączyć się z serwerem.");
     } finally {
+      // 3. Hide Global Loader
       setIsGenerating(false);
     }
   };
@@ -623,6 +507,7 @@ const CVGenerator: React.FC = () => {
           [contenteditable]:hover { background: transparent !important; outline: none !important; border: none !important; }
         }
       `}</style>
+      {/* --- GLOBAL LOADING OVERLAY --- */}
       {isGenerating && (
         <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
@@ -631,6 +516,7 @@ const CVGenerator: React.FC = () => {
         </div>
       )}
 
+      {/* --- HEADER --- */}
       <div className="text-center mb-8 no-print">
         <h1 className="text-3xl md:text-4xl font-extrabold text-gray-800 mb-2">
           Każde CV powinno być dokładnie dopasowane do oferty pracy!
@@ -641,8 +527,10 @@ const CVGenerator: React.FC = () => {
       </div>
 
       <div className="main-layout max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* --- LEFT PANEL: CONTROLS --- */}
         <div className="no-print lg:col-span-4 flex flex-col gap-4 h-[calc(100vh-3rem)] sticky top-6">
           <div className="bg-white rounded-xl shadow-md p-4 flex flex-col h-full border border-gray-200 overflow-y-auto">
+            {/* --- BUTTON GROUP: Prompt & Download --- */}
             <div className="mb-6 space-y-2">
               <button
                 onClick={() => setIsPromptModalOpen(true)}
@@ -660,6 +548,7 @@ const CVGenerator: React.FC = () => {
               </button>
             </div>
 
+            {/* --- MOVED: Image Upload (Now under buttons) --- */}
             <div className="mb-6">
               <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Zdjęcie Profilowe</h2>
               <div
@@ -702,6 +591,7 @@ const CVGenerator: React.FC = () => {
               </div>
             </div>
 
+            {/* Template Selector */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Szablon i Styl</h2>
@@ -711,15 +601,37 @@ const CVGenerator: React.FC = () => {
               </div>
               <div className="space-y-3">
                 <StyleGroup
-                  title="WYBIERZ SZABLON"
+                  title="ECOMMERCE"
                   styles={["ecommerce-1", "ecommerce-2"]}
                   current={selectedStyle}
                   set={setSelectedStyle}
-                  labels={["Scale", "Brand"]}
+                  labels={["Growth & Scale", "Brand Modern"]}
+                />
+                <StyleGroup
+                  title="MARKETING"
+                  styles={["marketing-1", "marketing-2"]}
+                  current={selectedStyle}
+                  set={setSelectedStyle}
+                  labels={["Modern Bold", "Creative"]}
+                />
+                <StyleGroup
+                  title="LOGISTICS"
+                  styles={["logistics-1", "logistics-2"]}
+                  current={selectedStyle}
+                  set={setSelectedStyle}
+                  labels={["Corporate", "Dense Data"]}
+                />
+                <StyleGroup
+                  title="ENGINEERING"
+                  styles={["engineering-1", "engineering-2"]}
+                  current={selectedStyle}
+                  set={setSelectedStyle}
+                  labels={["Terminal", "Tech Clean"]}
                 />
               </div>
             </div>
 
+            {/* Print Margins Settings */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Marginesy Druku (px)</h2>
@@ -753,9 +665,10 @@ const CVGenerator: React.FC = () => {
               </div>
             </div>
 
+            {/* JSON Editor */}
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Dane JSON (Zaawansowane)</h2>
             <textarea
-              className={`flex-1 w-full p-4 font-mono text-[10px] leading-relaxed bg-[#f9fafb] border rounded-lg focus:outline-none focus:ring-2 resize-none mb-2 min-h-[100px] ${
+              className={`flex-1 w-full p-4 font-mono text-[10px] leading-relaxed bg-[#f9fafb] border rounded-lg focus:outline-none focus:ring-2 resize-none mb-2 ${
                 error ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200"
               }`}
               value={jsonString}
@@ -763,72 +676,19 @@ const CVGenerator: React.FC = () => {
               spellCheck={false}
             />
             {error && <div className="text-red-500 text-xs font-bold bg-red-50 p-2 rounded mb-2">⚠️ {error}</div>}
-
-            {/* --- History Section Moved to Bottom --- */}
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Historia Wersji</h2>
-                <button onClick={handleSaveToHistory} className="text-xs text-blue-600 hover:underline font-bold">
-                  + Zapisz Obecny
-                </button>
-              </div>
-              <div className="max-h-32 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                {history.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">Brak zapisanych wersji.</p>
-                ) : (
-                  history.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-2 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 group"
-                    >
-                      <div className="flex-1 min-w-0 mr-2">
-                        <div className="text-xs font-bold text-gray-700 truncate" title={item.name}>
-                          {item.name}
-                        </div>
-                        <div className="text-[10px] text-gray-400">
-                          {new Date(item.timestamp).toLocaleDateString()}{" "}
-                          {new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleLoadHistory(item)}
-                          className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                          title="Wczytaj"
-                        >
-                          📂
-                        </button>
-                        <button
-                          onClick={() => handleDeleteHistory(item.id)}
-                          className="p-1 text-red-600 hover:bg-red-100 rounded"
-                          title="Usuń"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-            {/* --- History Section End --- */}
           </div>
         </div>
 
+        {/* --- RIGHT PANEL: PREVIEW --- */}
         <div className="cv-preview-wrapper lg:col-span-8 overflow-auto flex justify-center bg-[#e5e7eb] rounded-xl p-8 border border-gray-300 shadow-inner">
           <div className="scale-[0.85] lg:scale-100 origin-top">
             <SafeErrorBoundary>
-              <TemplateRenderer
-                style={selectedStyle}
-                data={data}
-                image={profileImage}
-                onUpdate={handleFieldUpdate}
-                onRemove={handleRemoveItem}
-              />
+              <TemplateRenderer style={selectedStyle} data={data} image={profileImage} onUpdate={handleFieldUpdate} />
             </SafeErrorBoundary>
           </div>
         </div>
       </div>
+      {/* --- RENDER PROMPT MODAL --- */}
       <PromptModal
         isOpen={isPromptModalOpen}
         onClose={() => setIsPromptModalOpen(false)}
@@ -847,7 +707,7 @@ const StyleGroup = ({ title, styles, current, set, labels }: any) => (
         <button
           key={s}
           onClick={() => set(s)}
-          className={`p-1.5 text-[10px] font-medium rounded border transition-all ${
+          className={`p-2 text-xs font-medium rounded border transition-all ${
             current === s ? "bg-gray-800 text-white" : "bg-white hover:bg-gray-50"
           }`}
         >
@@ -858,6 +718,7 @@ const StyleGroup = ({ title, styles, current, set, labels }: any) => (
   </div>
 );
 
+// --- NEW COMPONENT: Prompt Modal (Modified) ---
 const PromptModal = ({
   isOpen,
   onClose,
@@ -867,6 +728,7 @@ const PromptModal = ({
   onClose: () => void;
   onGenerate: (prompt: string) => void;
 }) => {
+  // 1. State for Job Description
   const [jobDescription, setJobDescription] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("prompt_jobDescription") || "";
@@ -874,6 +736,7 @@ const PromptModal = ({
     return "";
   });
 
+  // 2. State for User's CV Information
   const [userInformation, setUserInformation] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("prompt_userInformation") || "";
@@ -881,6 +744,7 @@ const PromptModal = ({
     return "";
   });
 
+  // Persistence Effects
   useEffect(() => {
     localStorage.setItem("prompt_jobDescription", jobDescription);
   }, [jobDescription]);
@@ -891,6 +755,7 @@ const PromptModal = ({
 
   if (!isOpen) return null;
 
+  // 4. Construct the Prompt for Preview
   const finalPrompt = `
 
 <opis-oferty-pracy>
@@ -906,6 +771,7 @@ ${userInformation}
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 print:hidden">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden max-h-[90vh]">
+        {/* Header */}
         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
           <h2 className="font-bold text-gray-800 flex items-center gap-2">
             <span className="text-xl">✨</span> AI CV Generator
@@ -920,6 +786,7 @@ ${userInformation}
           </button>
         </div>
 
+        {/* Body - Vertical Layout for Inputs */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           <div className="space-y-2">
             <label className="block text-xs font-bold text-gray-500 uppercase">
@@ -944,6 +811,7 @@ ${userInformation}
           </div>
         </div>
 
+        {/* Footer */}
         <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -971,13 +839,11 @@ const TemplateRenderer = ({
   data,
   image,
   onUpdate,
-  onRemove,
 }: {
   style: CVStyle;
   data: CVData;
   image: string | null;
   onUpdate: (path: (string | number)[], val: string) => void;
-  onRemove: (path: (string | number)[], index: number) => void;
 }) => {
   const wrapperId = "printable-cv";
   const commonStyles = { width: "210mm", minHeight: "297mm", boxSizing: "border-box" as const };
@@ -989,10 +855,10 @@ const TemplateRenderer = ({
     skills: "Umiejętności",
     languages: "Języki",
     interests: "Zainteresowania",
-    aboutMe: "O mnie",
+    summary: "O mnie",
   };
 
-  // --- ECOMMERCE 1: Scale (Clean, Metric Focused) ---
+  // --- ECOMMERCE 1: Growth & Scale (Clean, Metric Focused) ---
   if (style === "ecommerce-1") {
     return (
       <div id={wrapperId} className={baseClass} style={{ ...commonStyles, padding: "40px" }}>
@@ -1004,6 +870,7 @@ const TemplateRenderer = ({
               value={data.fullName}
               onUpdate={(v) => onUpdate(["fullName"], v)}
             />
+
             <Editable
               tag="p"
               className="text-xl font-medium text-gray-600"
@@ -1027,31 +894,33 @@ const TemplateRenderer = ({
               value={data.contact.location}
               onUpdate={(v) => onUpdate(["contact", "location"], v)}
             />
+            {/* LINKEDIN REMOVED */}
           </div>
           {image && <img src={image} alt="Profile" className="w-24 h-24 object-cover border-2 border-black ml-6" />}
         </header>
+
         <section className="mb-8">
           <Editable
             tag="h3"
             className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-3 uppercase"
-            value={labels.aboutMe}
-            onUpdate={(v) => onUpdate(["labels", "aboutMe"], v)}
+            value={labels.summary}
+            onUpdate={(v) => onUpdate(["labels", "summary"], v)}
           />
+          {/* UPDATED: Summary List */}
           <ol className="list-decimal list-outside ml-5 text-gray-800 text-sm leading-relaxed font-light space-y-2">
-            {data.aboutMe.map((item, idx) => (
-              <Removable key={item.id} onRemove={() => onRemove(["aboutMe"], idx)} className="pl-2">
-                <li className="pl-1">
-                  <span className="font-bold mr-1">
-                    <Editable value={item.main} onUpdate={(v) => onUpdate(["aboutMe", idx, "main"], v)} />
-                  </span>
-                  <span className="block md:inline">
-                    <Editable value={item.text} onUpdate={(v) => onUpdate(["aboutMe", idx, "text"], v)} />
-                  </span>
-                </li>
-              </Removable>
+            {data.summary.map((item, idx) => (
+              <li key={item.id} className="pl-2">
+                <span className="font-bold mr-1">
+                  <Editable value={item.main} onUpdate={(v) => onUpdate(["summary", idx, "main"], v)} />
+                </span>
+                <span className="block md:inline">
+                  <Editable value={item.text} onUpdate={(v) => onUpdate(["summary", idx, "text"], v)} />
+                </span>
+              </li>
             ))}
           </ol>
         </section>
+
         <div className="grid grid-cols-12 gap-8">
           <div className="col-span-8">
             <section className="mb-8">
@@ -1063,45 +932,39 @@ const TemplateRenderer = ({
               />
               <div className="space-y-8">
                 {data.experience.map((exp, idx) => (
-                  <Removable key={exp.id} onRemove={() => onRemove(["experience"], idx)}>
-                    <div>
-                      <div className="flex justify-between items-baseline border-b border-gray-200 pb-1 mb-2">
-                        <Editable
-                          tag="h4"
-                          className="text-xl font-bold"
-                          value={exp.role}
-                          onUpdate={(v) => onUpdate(["experience", idx, "role"], v)}
-                        />
-                        <Editable
-                          tag="span"
-                          className="text-sm font-bold"
-                          value={exp.duration}
-                          onUpdate={(v) => onUpdate(["experience", idx, "duration"], v)}
-                        />
-                      </div>
+                  <div key={exp.id}>
+                    <div className="flex justify-between items-baseline border-b border-gray-200 pb-1 mb-2">
                       <Editable
-                        className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 block"
-                        value={exp.company}
-                        onUpdate={(v) => onUpdate(["experience", idx, "company"], v)}
+                        tag="h4"
+                        className="text-xl font-bold"
+                        value={exp.role}
+                        onUpdate={(v) => onUpdate(["experience", idx, "role"], v)}
                       />
-                      <ul className="list-disc list-outside ml-4 text-gray-700 space-y-1">
-                        {exp.description.map((desc, i) => (
-                          <Removable key={i} onRemove={() => onRemove(["experience", idx, "description"], i)}>
-                            <li>
-                              <Editable
-                                value={desc}
-                                onUpdate={(v) => onUpdate(["experience", idx, "description", i], v)}
-                              />
-                            </li>
-                          </Removable>
-                        ))}
-                      </ul>
+                      <Editable
+                        tag="span"
+                        className="text-sm font-bold"
+                        value={exp.duration}
+                        onUpdate={(v) => onUpdate(["experience", idx, "duration"], v)}
+                      />
                     </div>
-                  </Removable>
+                    <Editable
+                      className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2 block"
+                      value={exp.company}
+                      onUpdate={(v) => onUpdate(["experience", idx, "company"], v)}
+                    />
+                    <ul className="list-disc list-outside ml-4 text-gray-700 space-y-1">
+                      {exp.description.map((desc, i) => (
+                        <li key={i}>
+                          <Editable value={desc} onUpdate={(v) => onUpdate(["experience", idx, "description", i], v)} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
               </div>
             </section>
           </div>
+
           <div className="col-span-4 space-y-8">
             <section>
               <Editable
@@ -1110,60 +973,26 @@ const TemplateRenderer = ({
                 value={labels.skills}
                 onUpdate={(v) => onUpdate(["labels", "skills"], v)}
               />
-              <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+              <div className="space-y-4">
                 {data.skills.map((skill, idx) => (
-                  <Removable key={idx} onRemove={() => onRemove(["skills"], idx)}>
-                    <span className="bg-gray-100 px-2 py-1 rounded border border-gray-200 inline-block">
-                      <Editable value={skill} onUpdate={(v) => onUpdate(["skills", idx], v)} />
-                    </span>
-                  </Removable>
-                ))}
-              </div>
-            </section>
-            <section>
-              <Editable
-                tag="h3"
-                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
-                value={labels.languages}
-                onUpdate={(v) => onUpdate(["labels", "languages"], v)}
-              />
-              <div className="space-y-2">
-                {data.languages.map((lang, idx) => (
-                  <Removable key={idx} onRemove={() => onRemove(["languages"], idx)}>
-                    <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-1">
-                      <Editable
-                        className="font-bold"
-                        value={lang.language}
-                        onUpdate={(v) => onUpdate(["languages", idx, "language"], v)}
-                      />
-                      <Editable
-                        className="text-gray-500 italic"
-                        value={lang.proficiency}
-                        onUpdate={(v) => onUpdate(["languages", idx, "proficiency"], v)}
-                      />
+                  <div key={idx}>
+                    <Editable
+                      className="font-bold text-sm border-b border-gray-300 block mb-1"
+                      value={skill.category}
+                      onUpdate={(v) => onUpdate(["skills", idx, "category"], v)}
+                    />
+                    <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm text-gray-600">
+                      {skill.items.map((item, i) => (
+                        <span key={i} className="after:content-[','] last:after:content-['']">
+                          <Editable value={item} onUpdate={(v) => onUpdate(["skills", idx, "items", i], v)} />
+                        </span>
+                      ))}
                     </div>
-                  </Removable>
+                  </div>
                 ))}
               </div>
             </section>
-            {/* Added Interests Section */}
-            <section>
-              <Editable
-                tag="h3"
-                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
-                value={labels.interests}
-                onUpdate={(v) => onUpdate(["labels", "interests"], v)}
-              />
-              <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm text-gray-600">
-                {data.interests.map((interest, idx) => (
-                  <Removable key={idx} onRemove={() => onRemove(["interests"], idx)} className="inline-block">
-                    <span className="after:content-[','] last:after:content-['']">
-                      <Editable value={interest} onUpdate={(v) => onUpdate(["interests", idx], v)} />
-                    </span>
-                  </Removable>
-                ))}
-              </div>
-            </section>
+
             <section>
               <Editable
                 tag="h3"
@@ -1172,26 +1001,40 @@ const TemplateRenderer = ({
                 onUpdate={(v) => onUpdate(["labels", "education"], v)}
               />
               {data.education.map((edu, idx) => (
-                <Removable key={edu.id} onRemove={() => onRemove(["education"], idx)} className="mb-3">
-                  <div>
-                    <Editable
-                      className="font-bold block"
-                      value={edu.school}
-                      onUpdate={(v) => onUpdate(["education", idx, "school"], v)}
-                    />
-                    <Editable
-                      className="text-sm text-gray-600 block"
-                      value={edu.degree}
-                      onUpdate={(v) => onUpdate(["education", idx, "degree"], v)}
-                    />
-                    <Editable
-                      className="text-xs text-gray-400 block"
-                      value={edu.year}
-                      onUpdate={(v) => onUpdate(["education", idx, "year"], v)}
-                    />
-                  </div>
-                </Removable>
+                <div key={edu.id} className="mb-3">
+                  <Editable
+                    className="font-bold block"
+                    value={edu.school}
+                    onUpdate={(v) => onUpdate(["education", idx, "school"], v)}
+                  />
+                  <Editable
+                    className="text-sm text-gray-600 block"
+                    value={edu.degree}
+                    onUpdate={(v) => onUpdate(["education", idx, "degree"], v)}
+                  />
+                  <Editable
+                    className="text-xs text-gray-400 block"
+                    value={edu.year}
+                    onUpdate={(v) => onUpdate(["education", idx, "year"], v)}
+                  />
+                </div>
               ))}
+            </section>
+
+            <section>
+              <Editable
+                tag="h3"
+                className="text-sm font-bold bg-black text-white inline-block px-2 py-1 mb-4 uppercase"
+                value={labels.interests}
+                onUpdate={(v) => onUpdate(["labels", "interests"], v)}
+              />
+              <div className="text-sm text-gray-600 flex flex-wrap gap-2">
+                {data.interests.map((int, i) => (
+                  <span key={i} className="bg-gray-100 px-2 py-1 rounded">
+                    <Editable value={int} onUpdate={(v) => onUpdate(["interests", i], v)} />
+                  </span>
+                ))}
+              </div>
             </section>
           </div>
         </div>
@@ -1199,227 +1042,9 @@ const TemplateRenderer = ({
     );
   }
 
-  // --- ECOMMERCE 2: Brand (Creative Sidebar) ---
-  if (style === "ecommerce-2") {
-    return (
-      <div id={wrapperId} className={baseClass} style={{ ...commonStyles, display: "flex" }}>
-        {/* Sidebar */}
-        <div className="w-[30%] bg-gray-900 text-white p-8 flex flex-col gap-8">
-          <div className="text-center">
-            {image && (
-              <img
-                src={image}
-                alt="Profile"
-                className="w-32 h-32 rounded-full object-cover mx-auto mb-4 border-4 border-gray-700"
-              />
-            )}
-            <div className="text-sm space-y-2 opacity-90">
-              <Editable
-                value={data.contact.email}
-                onUpdate={(v) => onUpdate(["contact", "email"], v)}
-                className="block"
-              />
-              <Editable
-                value={data.contact.phone}
-                onUpdate={(v) => onUpdate(["contact", "phone"], v)}
-                className="block"
-              />
-              <Editable
-                value={data.contact.location}
-                onUpdate={(v) => onUpdate(["contact", "location"], v)}
-                className="block"
-              />
-            </div>
-          </div>
-
-          {/* Skills Section (Simplified) */}
-          <div>
-            <Editable
-              tag="h3"
-              className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-700 pb-1"
-              value={labels.skills}
-              onUpdate={(v) => onUpdate(["labels", "skills"], v)}
-            />
-            <div className="flex flex-wrap gap-2">
-              {data.skills.map((skill, idx) => (
-                <Removable key={idx} onRemove={() => onRemove(["skills"], idx)}>
-                  <span className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 inline-block">
-                    <Editable value={skill} onUpdate={(v) => onUpdate(["skills", idx], v)} />
-                  </span>
-                </Removable>
-              ))}
-            </div>
-          </div>
-
-          {/* Languages Section */}
-          <div>
-            <Editable
-              tag="h3"
-              className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-700 pb-1"
-              value={labels.languages}
-              onUpdate={(v) => onUpdate(["labels", "languages"], v)}
-            />
-            <div className="space-y-2">
-              {data.languages.map((lang, idx) => (
-                <Removable key={idx} onRemove={() => onRemove(["languages"], idx)}>
-                  <div className="flex justify-between items-center text-sm">
-                    <Editable
-                      className="font-bold text-white"
-                      value={lang.language}
-                      onUpdate={(v) => onUpdate(["languages", idx, "language"], v)}
-                    />
-                    <Editable
-                      className="text-gray-400 italic text-xs"
-                      value={lang.proficiency}
-                      onUpdate={(v) => onUpdate(["languages", idx, "proficiency"], v)}
-                    />
-                  </div>
-                </Removable>
-              ))}
-            </div>
-          </div>
-
-          {/* Added Interests Section */}
-          <div>
-            <Editable
-              tag="h3"
-              className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-700 pb-1"
-              value={labels.interests}
-              onUpdate={(v) => onUpdate(["labels", "interests"], v)}
-            />
-            <div className="flex flex-wrap gap-2">
-              {data.interests.map((interest, idx) => (
-                <Removable key={idx} onRemove={() => onRemove(["interests"], idx)}>
-                  <span className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300 inline-block border border-gray-700">
-                    <Editable value={interest} onUpdate={(v) => onUpdate(["interests", idx], v)} />
-                  </span>
-                </Removable>
-              ))}
-            </div>
-          </div>
-
-          {/* Education Section */}
-          <div>
-            <Editable
-              tag="h3"
-              className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4 border-b border-gray-700 pb-1"
-              value={labels.education}
-              onUpdate={(v) => onUpdate(["labels", "education"], v)}
-            />
-            {data.education.map((edu, idx) => (
-              <Removable key={idx} onRemove={() => onRemove(["education"], idx)} className="mb-4 text-sm">
-                <div>
-                  <Editable
-                    className="font-bold block text-white"
-                    value={edu.school}
-                    onUpdate={(v) => onUpdate(["education", idx, "school"], v)}
-                  />
-                  <Editable
-                    className="text-gray-400 block"
-                    value={edu.degree}
-                    onUpdate={(v) => onUpdate(["education", idx, "degree"], v)}
-                  />
-                  <Editable
-                    className="text-xs text-gray-500 block"
-                    value={edu.year}
-                    onUpdate={(v) => onUpdate(["education", idx, "year"], v)}
-                  />
-                </div>
-              </Removable>
-            ))}
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 p-10 bg-white">
-          <header className="mb-10 border-b-2 border-gray-100 pb-8">
-            <Editable
-              tag="h1"
-              className="text-5xl font-bold text-gray-900 leading-tight mb-2"
-              value={data.fullName}
-              onUpdate={(v) => onUpdate(["fullName"], v)}
-            />
-            <Editable
-              tag="p"
-              className="text-2xl text-blue-600 font-light"
-              value={data.title}
-              onUpdate={(v) => onUpdate(["title"], v)}
-            />
-          </header>
-          <section className="mb-10">
-            <Editable
-              tag="h3"
-              className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4"
-              value={labels.aboutMe}
-              onUpdate={(v) => onUpdate(["labels", "aboutMe"], v)}
-            />
-            <div className="space-y-4">
-              {data.aboutMe.map((item, idx) => (
-                <Removable key={item.id} onRemove={() => onRemove(["aboutMe"], idx)}>
-                  <div>
-                    <p className="font-bold text-gray-900 text-sm mb-1">
-                      <Editable value={item.main} onUpdate={(v) => onUpdate(["aboutMe", idx, "main"], v)} />
-                    </p>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      <Editable value={item.text} onUpdate={(v) => onUpdate(["aboutMe", idx, "text"], v)} />
-                    </p>
-                  </div>
-                </Removable>
-              ))}
-            </div>
-          </section>
-          <section>
-            <Editable
-              tag="h3"
-              className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-6"
-              value={labels.experience}
-              onUpdate={(v) => onUpdate(["labels", "experience"], v)}
-            />
-            <div className="space-y-8">
-              {data.experience.map((exp, idx) => (
-                <Removable key={exp.id} onRemove={() => onRemove(["experience"], idx)}>
-                  <div className="relative pl-6 border-l-2 border-gray-100">
-                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-50 border-2 border-blue-500"></div>
-                    <div className="flex justify-between items-baseline mb-1">
-                      <Editable
-                        tag="h4"
-                        className="text-lg font-bold text-gray-900"
-                        value={exp.role}
-                        onUpdate={(v) => onUpdate(["experience", idx, "role"], v)}
-                      />
-                      <Editable
-                        tag="span"
-                        className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded"
-                        value={exp.duration}
-                        onUpdate={(v) => onUpdate(["experience", idx, "duration"], v)}
-                      />
-                    </div>
-                    <Editable
-                      className="text-sm font-semibold text-gray-500 mb-3 block"
-                      value={exp.company}
-                      onUpdate={(v) => onUpdate(["experience", idx, "company"], v)}
-                    />
-                    <ul className="list-disc list-outside ml-4 text-sm text-gray-600 space-y-1">
-                      {exp.description.map((desc, i) => (
-                        <Removable key={i} onRemove={() => onRemove(["experience", idx, "description"], i)}>
-                          <li>
-                            <Editable
-                              value={desc}
-                              onUpdate={(v) => onUpdate(["experience", idx, "description", i], v)}
-                            />
-                          </li>
-                        </Removable>
-                      ))}
-                    </ul>
-                  </div>
-                </Removable>
-              ))}
-            </div>
-          </section>
-        </div>
-      </div>
-    );
-  }
+  // --- ECOMMERCE 2, MARKETING 1-2, LOGISTICS 1-2, ENGINEERING 1-2 Logic omitted for brevity as requested ---
+  // The provided logic above covers the main ECOMMERCE-1 template.
+  // If you switch templates in the UI, ensure the rest of the template logic (from your original file) is present here.
 
   return null;
 };
